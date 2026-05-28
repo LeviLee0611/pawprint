@@ -50,14 +50,23 @@
 - WEB_COMMUNITY_HARNESS.md 하네스 문서 작성
 - GitHub push → LeviLee0611/pawprint
 - DEVLOG.md 작성
+- Flutter 모바일 앱 초기 세팅 (캘린더 UI + Supabase 연동 구조)
+  - `mobile/` 디렉토리에 Flutter 프로젝트 생성
+  - 일정 관리용 캘린더 화면 컴포넌트 작성
+  - Supabase Flutter SDK 연결 준비
+- GitHub PAT 인증 설정 완료 (Windows 자격 증명 관리자에 자동 저장)
+- GitHub origin에 전체 코드 최종 푸시
 
 ### 스택 확정
-- Next.js 16 (App Router)
-- Supabase (PostgreSQL, Auth, Storage)
-- Tailwind CSS 4
-- TypeScript
-- Cloudflare Pages (배포)
+- **웹:** Next.js 16 (App Router) + Supabase + Tailwind CSS 4 + TypeScript
+- **모바일:** Flutter + Supabase
+- **배포:** Cloudflare Pages (웹), 추후 앱스토어 (모바일)
+
+### 현재 상태
+- 웹: UI 코드 완성, Supabase 테이블/Auth/Storage 설정 미완료 → 백엔드 연결 전
+- 모바일: 초기 구조만 잡힌 상태, 기능 개발 전
 
 ### 메모
 - `.env.local` Supabase URL + anon key 입력 완료
 - `@cloudflare/next-on-pages` 패키지가 Next.js 16 아직 미지원 → 배포 시점에 해결
+- 다음 우선순위: Supabase 테이블 생성 (DEVLOG TODO 1단계)
