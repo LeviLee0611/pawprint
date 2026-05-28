@@ -1,0 +1,5 @@
+package com.pawprint.mobile
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()
