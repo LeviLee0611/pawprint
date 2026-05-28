@@ -14,10 +14,10 @@ class _LoginScreenState extends State<LoginScreen> {
   final _authService = AuthService();
   bool _loading = false;
 
-  Future<void> _signInWithGoogle() async {
+  Future<void> _signIn(Future<void> Function() signInMethod) async {
     setState(() => _loading = true);
     try {
-      await _authService.signInWithGoogle();
+      await signInMethod();
     } on AuthException catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -25,7 +25,6 @@ class _LoginScreenState extends State<LoginScreen> {
         );
       }
     } catch (e) {
-      // 유저가 로그인 취소한 경우 조용히 무시
       if (e.toString().contains('canceled') || e.toString().contains('cancelled')) return;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -35,6 +34,30 @@ class _LoginScreenState extends State<LoginScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Widget _loginButton({
+    required String label,
+    required Color color,
+    required Color textColor,
+    required Color borderColor,
+    required Widget icon,
+    required VoidCallback onTap,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      height: 52,
+      child: OutlinedButton.icon(
+        onPressed: onTap,
+        icon: icon,
+        label: Text(label, style: TextStyle(fontSize: 16, color: textColor)),
+        style: OutlinedButton.styleFrom(
+          backgroundColor: color,
+          side: BorderSide(color: borderColor),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      ),
+    );
   }
 
   @override
@@ -63,34 +86,31 @@ class _LoginScreenState extends State<LoginScreen> {
                 style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 64),
-              _loading
-                  ? const CircularProgressIndicator(color: AppColors.primary)
-                  : SizedBox(
-                      width: double.infinity,
-                      height: 52,
-                      child: OutlinedButton.icon(
-                        onPressed: _signInWithGoogle,
-                        icon: Image.network(
-                          'https://developers.google.com/identity/images/g-logo.png',
-                          height: 20,
-                          errorBuilder: (_, __, ___) =>
-                              const Icon(Icons.login, size: 20),
-                        ),
-                        label: const Text(
-                          'Google로 계속하기',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppColors.primaryLight),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                      ),
-                    ),
+              if (_loading)
+                const CircularProgressIndicator(color: AppColors.primary)
+              else ...[
+                _loginButton(
+                  label: 'Google로 계속하기',
+                  color: Colors.white,
+                  textColor: AppColors.textPrimary,
+                  borderColor: AppColors.primaryLight,
+                  icon: Image.network(
+                    'https://developers.google.com/identity/images/g-logo.png',
+                    height: 20,
+                    errorBuilder: (_, __, ___) => const Icon(Icons.login, size: 20),
+                  ),
+                  onTap: () => _signIn(_authService.signInWithGoogle),
+                ),
+                const SizedBox(height: 12),
+                _loginButton(
+                  label: '카카오로 계속하기',
+                  color: const Color(0xFFFEE500),
+                  textColor: const Color(0xFF191919),
+                  borderColor: const Color(0xFFFEE500),
+                  icon: const Icon(Icons.chat_bubble, size: 20, color: Color(0xFF191919)),
+                  onTap: () => _signIn(_authService.signInWithKakao),
+                ),
+              ],
             ],
           ),
         ),

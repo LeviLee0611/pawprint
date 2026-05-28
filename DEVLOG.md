@@ -60,17 +60,33 @@
   - `com.pawprint.mobile://login-callback/` 딥링크 스킴 등록
   - Android intent-filter 추가
   - 실기기(갤럭시 S25+) 로그인 테스트 성공
+- 카카오 로그인 구현 (Flutter)
+  - `kakao_flutter_sdk_user` ^1.9.9 패키지 추가
+  - `KakaoSdk.init()` + native app key 설정
+  - `signInWithIdToken(provider: OAuthProvider.kakao)` 로 Supabase 연동
+  - AndroidManifest에 Kakao scheme, AuthCodeHandlerActivity, queries 추가
+  - Kakao 개발자 콘솔 OpenID Connect 활성화
+  - 현재 `loginWithKakaoAccount()` 사용 중 (웹뷰 방식)
+  - 프로필 화면 구현 (아바타, 닉네임, 이메일, 로그아웃)
 
 ### 현재 상태
-- 모바일: Google 로그인 완료, 메인 화면(캘린더) 진입 가능
+- 모바일: Google + 카카오 로그인 완료, 메인 화면(캘린더) 진입 가능
 - DB: 전체 스키마 완성, RLS + 인덱스 적용
 - 웹: 아직 백엔드 미연결 (다음 작업)
+
+### 다음 할 일
+- 카카오 네이티브 로그인 (KakaoTalk 앱 연동) 전환
+  - 카카오 개발자 콘솔에서 Android 플랫폼 등록 및 키 해시 등록 필요
+  - 디버그 키 해시: `i6yFzEEMq8yQZsAAvEBtIfY6SDo=`
+  - 새 콘솔 URL: `https://developers.kakao.com/console/app/1471106/` (플랫폼 메뉴 위치 변경됨)
+  - 등록 후 `auth_service.dart`에서 `loginWithKakaoAccount()` → `loginWithKakaoTalk()` 전환
 
 ### 메모
 - Supabase Google Provider에는 반드시 **Web 클라이언트 ID** 사용 (Android ID 아님)
 - Redirect URLs에 `com.pawprint.mobile://login-callback/` 등록 필수
-- `config.dart`는 `.gitignore`에 포함됨 (Supabase URL, anon key, Web Client ID 보관)
-- 카카오/네이버 로그인은 MVP 이후 추가 예정
+- `config.dart`는 `.gitignore`에 포함됨 (Supabase URL, anon key, Web Client ID, Kakao native key 보관)
+- Kakao `User` 클래스 충돌 → `import ... hide User` 로 해결
+- `loginWithKakaoTalk()`/`loginWithKakaoAccount()`에 `scopes` 파라미터 없음 (v1.x)
 
 ---
 
