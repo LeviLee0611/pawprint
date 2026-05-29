@@ -14,8 +14,11 @@ class AuthService {
   Future<void> signInWithKakao() async {
     OAuthToken token;
 
-    // TODO: switch back to loginWithKakaoTalk after registering key hash in Kakao console
-    token = await UserApi.instance.loginWithKakaoAccount();
+    if (await isKakaoTalkInstalled()) {
+      token = await UserApi.instance.loginWithKakaoTalk();
+    } else {
+      token = await UserApi.instance.loginWithKakaoAccount();
+    }
 
     final idToken = token.idToken;
     if (idToken == null) throw Exception('카카오 ID 토큰을 가져올 수 없어요');

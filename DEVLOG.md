@@ -1,43 +1,65 @@
-# 냥발도장 개발 기록
+# 포포와 토토 개발 기록
 
 ## TODO
 
-### 1단계 — 백엔드 연결 (다음 할 일)
-- [ ] Supabase SQL Editor에서 테이블 생성 (WEB_COMMUNITY_HARNESS.md 섹션 7 SQL 실행)
-- [ ] Supabase Dashboard → Authentication → Providers → Google 활성화
-- [ ] Google Cloud Console에서 OAuth 클라이언트 ID/Secret 발급 후 Supabase에 입력
-- [ ] Supabase Dashboard → Storage → `post-images` 버킷 생성 (Public)
-- [ ] `npm run dev` 로컬 실행 후 로그인 동작 확인
+### 다음 할 일 (Flutter 모바일)
+- [ ] 캘린더 홈 화면 — 펫 없을 때 빈 화면 + 등록 유도
+- [ ] 캘린더 홈 화면 — 펫 있을 때 날짜별 기록 UI
+- [ ] 기록 추가 기능 (텍스트, 사진, 기분 선택)
+- [ ] 내 펫 화면 — 등록된 펫 목록 + 펫 추가 버튼
+- [ ] 피드 화면 — 글 목록 + 글쓰기 (펫 없으면 글쓰기 비활성)
+- [ ] 프로필 화면 — 유저 정보 + 로그아웃
 
-### 2단계 — 기능 검증
-- [ ] Google 로그인 → profiles 테이블에 유저 자동 생성되는지 확인
-- [ ] 글 작성 → posts 테이블에 저장되는지 확인
-- [ ] 이미지 업로드 → Supabase Storage에 저장되는지 확인
-- [ ] 피드에서 글 목록 로드 확인
-- [ ] 댓글 작성/삭제 확인
-- [ ] 좋아요 토글 확인
-
-### 3단계 — UI 다듬기
-- [ ] 로딩 상태 전체 점검 (스피너 제대로 뜨는지)
-- [ ] 빈 상태 화면 점검 (글 없을 때, 댓글 없을 때)
-- [ ] 모바일 반응형 확인 (브라우저 창 줄여서 테스트)
-- [ ] 이미지 없는 글 레이아웃 확인
-- [ ] 에러 상황 처리 (네트워크 끊겼을 때 등)
-
-### 4단계 — 배포
-- [ ] Cloudflare Pages에 GitHub 레포 연결
-- [ ] 환경변수 Cloudflare에 입력 (SUPABASE_URL, SUPABASE_ANON_KEY)
-- [ ] 빌드 확인 (`npm run build` 로컬에서 먼저)
-- [ ] 배포 후 실제 URL에서 동작 확인
-- [ ] Supabase Auth에 Cloudflare 도메인 허용 URL 추가
-
-### 5단계 — MVP 이후 (나중에)
-- [ ] 글 검색 기능
-- [ ] 유저 팔로우 시스템
-- [ ] 글 저장 (북마크)
+### 나중에 (MVP 이후)
+- [ ] 광고 (AdMob) 연동
+- [ ] 프리미엄 구독 (펫 3마리 이상, 고급 통계)
 - [ ] 푸시 알림
-- [ ] 카카오 로그인 추가
-- [ ] 네이버 로그인 추가
+- [ ] 브랜드 제휴
+- [ ] Firebase App Distribution으로 테스트 배포
+
+---
+
+## 2026-05-29
+
+### 한 일
+- **앱 브랜딩 확정**
+  - 앱 이름: **포포와 토토**
+  - 컬러: 크림 (#FDFBF5) + 오렌지 (#FF8C42)
+  - 캐릭터: 포포(고양이) + 토토(강아지) 공식 채택
+  - 슬로건: "매일의 기록이 사랑이 된다"
+- **카카오 네이티브 로그인 완성**
+  - `loginWithKakaoTalk()` 전환 (KakaoTalk 앱 연동)
+  - Android 키 해시 등록 (`rxLZL3QGtmo6gZU1+BbyomM7mdc=`)
+  - Supabase Kakao Provider Client ID → 네이티브 앱 키로 교체
+  - Supabase Email Confirmation OFF (Kakao unverified email 대응)
+- **로딩 화면 완성**
+  - 포포&토토 이미지 통통 튀기기 애니메이션
+  - 주변 🐾 발바닥 둥둥 떠다니는 효과
+  - 배경색 이미지와 완전 매칭 (#FDFBF5)
+- **펫 등록 화면 (AddPetScreen) 구현**
+  - 상단: 포포/토토 얼굴 + "아이를 소개해주세요!" 헤더
+  - 종류 선택: 포포발자국(오렌지)/토토발자국(브라운) 이미지 버튼
+  - 프로필 사진 선택 (image_picker)
+  - 이름 / 성별 / 생일(캘린더 전용) / 품종 입력
+  - 상단 "나중에" 버튼으로 스킵 가능
+  - Supabase pets 테이블 저장 성공
+- **로그인 후 펫 체크 로직 (PetGate)**
+  - 펫 없으면 → 펫 등록 화면
+  - 펫 있으면 → 메인 앱
+
+### Supabase pets 테이블 실제 컬럼명
+- `birth_date` (birthday 아님)
+- `gender` (text, 직접 추가)
+- `photo_url` (profile_image_url 아님)
+- `type` (text, 직접 추가) — 'cat' | 'dog'
+
+### 현재 상태
+- 로그인(Google + 카카오) → 펫 등록 → 메인 앱 진입 플로우 완성
+- 메인 앱 내 각 화면은 아직 플레이스홀더
+
+### 다음 할 일
+- 캘린더 홈 화면 구현 (기록 핵심 기능)
+- 내 펫 화면 (등록된 펫 목록)
 
 ---
 

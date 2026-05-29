@@ -31,7 +31,7 @@ class AppTheme {
       primary: AppColors.primary,
       secondary: AppColors.peach,
       surface: AppColors.surface,
-      background: AppColors.background,
+      // ignore: deprecated_member_use
     ),
     scaffoldBackgroundColor: AppColors.background,
     appBarTheme: const AppBarTheme(

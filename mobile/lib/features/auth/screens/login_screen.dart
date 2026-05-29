@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/running_cat.dart';
 import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -26,9 +27,10 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       if (e.toString().contains('canceled') || e.toString().contains('cancelled')) return;
+      debugPrint('LOGIN ERROR: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('로그인 중 오류가 발생했어요'), backgroundColor: Colors.red),
+          const SnackBar(content: Text('로그인 중 오류가 발생했어요. 다시 시도해주세요.'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -62,6 +64,13 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFFDFBF5),
+        body: Center(child: RunningCatLoading()),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: SafeArea(
@@ -82,13 +91,11 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
               const SizedBox(height: 8),
               const Text(
-                '우리 고양이의 하루를 기록해요',
+                '우리 아이들의 하루를 기록해요',
                 style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 64),
-              if (_loading)
-                const CircularProgressIndicator(color: AppColors.primary)
-              else ...[
+              ...[
                 _loginButton(
                   label: 'Google로 계속하기',
                   color: Colors.white,
@@ -97,7 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   icon: Image.network(
                     'https://developers.google.com/identity/images/g-logo.png',
                     height: 20,
-                    errorBuilder: (_, __, ___) => const Icon(Icons.login, size: 20),
+                    errorBuilder: (context, error, stack) => const Icon(Icons.login, size: 20),
                   ),
                   onTap: () => _signIn(_authService.signInWithGoogle),
                 ),
@@ -118,3 +125,4 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
+

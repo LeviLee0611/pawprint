@@ -9,6 +9,15 @@ export async function signInWithGoogle() {
   })
 }
 
+export async function signInWithKakao() {
+  return supabase.auth.signInWithOAuth({
+    provider: 'kakao',
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`,
+    },
+  })
+}
+
 export async function signOutUser() {
   return supabase.auth.signOut()
 }

@@ -9,6 +9,8 @@ import 'config.dart';
 import 'app.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/screens/login_screen.dart';
+import 'features/pet/screens/add_pet_screen.dart';
+import 'features/pet/services/pet_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -86,7 +88,46 @@ class AuthGate extends StatelessWidget {
           );
         }
         final session = Supabase.instance.client.auth.currentSession;
-        return session != null ? const App() : const LoginScreen();
+        if (session == null) return const LoginScreen();
+        return const _PetGate();
+      },
+    );
+  }
+}
+
+class _PetGate extends StatefulWidget {
+  const _PetGate();
+
+  // 세션 동안 스킵 여부 기억 (앱 재시작 전까지 유지)
+  static bool skippedThisSession = false;
+
+  @override
+  State<_PetGate> createState() => _PetGateState();
+}
+
+class _PetGateState extends State<_PetGate> {
+  final _petService = PetService();
+
+  @override
+  Widget build(BuildContext context) {
+    if (_PetGate.skippedThisSession) return const App();
+
+    return FutureBuilder(
+      future: _petService.getMyPets(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+          );
+        }
+        final pets = snapshot.data ?? [];
+        if (pets.isEmpty) {
+          return AddPetScreen(
+            isOnboarding: true,
+            onSkip: () => setState(() => _PetGate.skippedThisSession = true),
+          );
+        }
+        return const App();
       },
     );
   }

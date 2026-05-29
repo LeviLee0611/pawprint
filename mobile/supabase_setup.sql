@@ -38,11 +38,13 @@ create trigger on_auth_user_created
   for each row execute procedure public.handle_new_user();
 
 
--- 2. pets (반려묘 정보)
+-- 2. pets (반려동물 정보)
 create table public.pets (
   id uuid default gen_random_uuid() primary key,
   owner_id uuid references public.profiles on delete cascade not null,
   name text not null,
+  type text not null default 'cat',  -- 'cat' | 'dog'
+  gender text,                        -- 'male' | 'female' | 'neutered'
   breed text,
   birth_date date,
   photo_url text,
@@ -51,11 +53,9 @@ create table public.pets (
 
 alter table public.pets enable row level security;
 
+-- 본인 펫만 조회/수정/삭제 (개인정보 보호)
 create policy "본인 펫만 관리" on public.pets
   for all using (auth.uid() = owner_id);
-
-create policy "모두 조회 가능" on public.pets
-  for select using (true);
 
 
 -- 3. records (캘린더 일별 기록)
