@@ -44,7 +44,16 @@ class _PawprintAppState extends State<PawprintApp> {
     _initDeepLinks();
   }
 
-  void _initDeepLinks() {
+  void _initDeepLinks() async {
+    // 앱이 딥링크로 실행된 경우 (cold start)
+    try {
+      final initialUri = await _appLinks.getInitialLink();
+      if (initialUri != null) {
+        await Supabase.instance.client.auth.getSessionFromUrl(initialUri);
+      }
+    } catch (_) {}
+
+    // 앱 실행 중 딥링크 수신
     _deepLinkSub = _appLinks.uriLinkStream.listen((uri) {
       Supabase.instance.client.auth.getSessionFromUrl(uri);
     });
@@ -70,6 +79,16 @@ class _PawprintAppState extends State<PawprintApp> {
       ],
       supportedLocales: const [Locale('ko')],
       home: const AuthGate(),
+      // Flutter 라우터로 들어오는 OAuth 콜백 처리
+      onGenerateRoute: (settings) {
+        final name = settings.name ?? '';
+        if (name.contains('code=') || name.contains('access_token=')) {
+          final callbackUri =
+              Uri.parse('com.pawprint.mobile://login-callback$name');
+          Supabase.instance.client.auth.getSessionFromUrl(callbackUri);
+        }
+        return MaterialPageRoute(builder: (_) => const AuthGate());
+      },
     );
   }
 }

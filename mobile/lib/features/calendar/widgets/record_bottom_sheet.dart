@@ -45,7 +45,15 @@ class RecordBottomSheet extends StatelessWidget {
               description: '오늘의 순간을 남겨요',
               color: AppColors.primary,
               bgColor: AppColors.primaryLight,
-              onTap: () => Navigator.pop(context),
+              onTap: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('사진 기록은 곧 추가될 예정이에요 🐾'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
             ),
             _RecordOption(
               icon: Icons.vaccines_rounded,
@@ -53,7 +61,7 @@ class RecordBottomSheet extends StatelessWidget {
               description: '접종 기록을 관리해요',
               color: AppColors.green,
               bgColor: AppColors.greenLight,
-              onTap: () => Navigator.pop(context),
+              onTap: () => Navigator.pop(context, 'health'),
             ),
             _RecordOption(
               icon: Icons.monitor_weight_rounded,
@@ -61,7 +69,7 @@ class RecordBottomSheet extends StatelessWidget {
               description: '체중 변화를 체크해요',
               color: AppColors.brown,
               bgColor: AppColors.brownLight,
-              onTap: () => Navigator.pop(context),
+              onTap: () => Navigator.pop(context, 'weight'),
             ),
             _RecordOption(
               icon: Icons.favorite_rounded,
@@ -69,7 +77,7 @@ class RecordBottomSheet extends StatelessWidget {
               description: '특이사항이나 메모를 남겨요',
               color: AppColors.peach,
               bgColor: AppColors.peachLight,
-              onTap: () => Navigator.pop(context),
+              onTap: () => Navigator.pop(context, 'note'),
             ),
           ],
         ),

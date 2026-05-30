@@ -24,18 +24,35 @@ class _AppState extends State<App> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _screens[_currentIndex],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _screens,
+      ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: Colors.orange,
-        unselectedItemColor: Colors.grey,
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.calendar_month), label: '홈'),
-          BottomNavigationBarItem(icon: Icon(Icons.dynamic_feed), label: '피드'),
-          BottomNavigationBarItem(icon: Icon(Icons.pets), label: '내 펫'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: '프로필'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_month_outlined),
+            activeIcon: Icon(Icons.calendar_month),
+            label: '홈',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.dynamic_feed_outlined),
+            activeIcon: Icon(Icons.dynamic_feed),
+            label: '피드',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.pets_outlined),
+            activeIcon: Icon(Icons.pets),
+            label: '내 펫',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: '프로필',
+          ),
         ],
       ),
     );

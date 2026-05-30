@@ -3,12 +3,37 @@
 ## TODO
 
 ### 다음 할 일 (Flutter 모바일)
-- [ ] 캘린더 홈 화면 — 펫 없을 때 빈 화면 + 등록 유도
-- [ ] 캘린더 홈 화면 — 펫 있을 때 날짜별 기록 UI
-- [ ] 기록 추가 기능 (텍스트, 사진, 기분 선택)
-- [ ] 내 펫 화면 — 등록된 펫 목록 + 펫 추가 버튼
-- [ ] 피드 화면 — 글 목록 + 글쓰기 (펫 없으면 글쓰기 비활성)
-- [ ] 프로필 화면 — 유저 정보 + 로그아웃
+- [x] 캘린더 홈 화면 — 펫 없을 때 빈 화면 + 등록 유도
+- [x] 캘린더 홈 화면 — 펫 있을 때 날짜별 기록 UI
+- [x] 기록 추가 기능 — 예방접종(health), 몸무게(weight), 건강 메모(note)
+- [x] 내 펫 화면 — 등록된 펫 목록 + 펫 추가 버튼
+- [x] 피드 화면 — 스레드 스타일, 전체 유저 공개, 좋아요 + 댓글
+- [x] 프로필 화면 — 유저 정보 + 설정 + 로그아웃 + 회원탈퇴 + 수정
+- [x] 캘린더 UX — 날짜 탭 시 기록 먼저 표시, 상단 + 버튼으로 기록 추가
+- [x] 프로필 통계 카드 탭 → 내 펫 / 전체 기록 화면으로 이동
+- [x] 전체 기록 히스토리 화면 (RecordsHistoryScreen)
+
+### 코드 리뷰 반영 완료 (2026-05-30)
+- [x] posts 테이블에 `pet_id uuid references pets(id)` 추가 → `supabase_migration.sql` 실행 필요
+- [x] `display_name` 통일 — post_model, post_service, profile_service 전부 수정
+- [x] 피드 쿼리 join 복구 — `profiles(display_name, avatar_url)` + `pets(name, type)`
+- [x] 기록 수 count 쿼리 효율화 — `.count(CountOption.exact)` 사용
+- [x] 글 삭제 시 Storage 이미지 함께 삭제 — `_storagePath()` 헬퍼 + `deletePost(imageUrl:)`
+
+### Supabase 대시보드에서 직접 실행 필요
+```
+-- supabase_migration.sql 내용을 SQL Editor에서 실행
+alter table public.posts add column if not exists pet_id uuid references public.pets(id) on delete set null;
+create policy if not exists "피드에서 펫 이름 조회 허용" on public.pets for select using (true);
+```
+
+### 남은 작업 (다음)
+- [ ] **회원탈퇴 — auth.users 삭제** — profiles 삭제만으로는 auth 계정이 남음
+  - Supabase Edge Function 필요: `supabase.auth.admin.deleteUser(userId)`
+  - 탈퇴 시 Storage 파일(pet-photos, post-images) 정리도 함께
+- [ ] **펫 편집 기능** — 내 펫 화면에서 이름/사진/품종 수정 (새 화면 필요)
+- [ ] **다중 펫 캘린더 선택 UI** — 현재 첫 번째 펫만 표시, 펫 스위처 필요
+- [ ] **피드 이미지 업로드 RLS 확인** — post-images Storage 버킷 정책 테스트
 
 ### 나중에 (MVP 이후)
 - [ ] 광고 (AdMob) 연동
@@ -16,6 +41,68 @@
 - [ ] 푸시 알림
 - [ ] 브랜드 제휴
 - [ ] Firebase App Distribution으로 테스트 배포
+
+---
+
+## 2026-05-30 (오후)
+
+### 한 일
+- **캘린더 UX 개선**
+  - 날짜 탭 → 기록 목록 바로 표시 (바텀시트 자동 노출 제거)
+  - 상단 `+` 아이콘 버튼 → 선택된 날짜(없으면 오늘)의 기록 추가
+  - 기록 없는 날 빈 상태 UI + "기록 추가" 버튼
+  - 기록 목록에 날짜 헤더 + 추가/삭제 버튼
+  - `RecordService.getAllRecords()` 추가
+  - `RecordsHistoryScreen` 신규 — 전체 기록 날짜별 그룹
+- **피드 스레드 스타일 전면 재설계**
+  - 카드 제거 → 아바타 좌측 + 콘텐츠 우측 (Threads/Twitter 스타일)
+  - 전체 유저 공개 커뮤니티 피드 (앱 사용자 누구나 글/댓글)
+  - 글쓰기는 펫 등록 유저만 (FAB, 미등록 시 비활성)
+  - 좋아요 optimistic update, 댓글 스레드 스타일
+- **프로필 화면 개선**
+  - 통계 카드 클릭: 등록한 펫 → PetScreen, 총 기록 → RecordsHistoryScreen
+  - 프로필 수정 화면 추가 (이름 + 사진 변경)
+  - profiles 테이블 join 에러 → auth 메타데이터만 사용으로 수정
+  - ListTile Material 경고 수정
+- **기기 빌드 (Galaxy S25+)**
+  - posts.pet_id FK 없음, profiles.full_name 컬럼 없음 → 로컬 매칭 + 메타데이터로 우회
+
+---
+
+## 2026-05-30 (오전)
+
+### 한 일
+- **캘린더 기록 기능 전체 구현**
+  - `record_model.dart` — Record 모델 (type/emoji/label 포함)
+  - `record_service.dart` — getRecordsForMonth / addRecord / deleteRecord
+  - `add_record_screen.dart` — 기록 입력 화면 (예방접종, 몸무게, 건강 메모)
+  - `calendar_screen.dart` — 펫 로딩 + 월별 기록 로딩 + 날짜 마커(점) + 날짜별 기록 목록
+  - `record_bottom_sheet.dart` — 탭 시 type string 반환 → AddRecordScreen으로 이동
+- **펫 없을 때 빈 화면 + 등록 유도 UI**
+- **내 펫 화면 (PetScreen) 구현**
+  - 펫 카드 목록 (사진/이모지 아바타, 이름, 종류, 품종, 나이 칩, 성별 칩)
+  - 빈 상태 + FAB으로 펫 추가
+- **프로필 화면 (ProfileScreen) 구현**
+  - 유저 헤더 (소셜 아바타, 이름, 이메일)
+  - 통계 (등록한 펫 수, 총 기록 수)
+  - 설정: 알림 토글 (SharedPreferences)
+  - 정보: 이용약관, 개인정보처리방침, 앱 버전
+  - 계정: 로그아웃, 회원탈퇴 (profiles cascade delete)
+- **피드 화면 (FeedScreen) 전체 구현**
+  - `post_model.dart` — Post / Comment 모델 (profiles·pets join)
+  - `post_service.dart` — getPosts / addPost / deletePost / toggleLike / getComments / addComment / deleteComment
+  - `feed_screen.dart` — 글 목록 (optimistic 좋아요), 펫 없으면 FAB 비활성, pull-to-refresh
+  - `add_post_screen.dart` — 펫 선택 + 내용 + 이미지 첨부 + Supabase Storage
+  - `post_detail_screen.dart` — 글 상세 + 댓글 목록 + 댓글 입력 + 내 글/댓글 삭제
+
+### 플로우
+날짜 탭 → 바텀시트 → AddRecordScreen → 저장 → 캘린더 오렌지 점
+피드 FAB → AddPostScreen → 저장 → 피드 목록 / 탭 → PostDetailScreen → 댓글
+
+### 현재 상태
+- 4개 탭 전체 MVP 완성 (캘린더, 피드, 내 펫, 프로필)
+- Supabase records / posts / comments / likes / pets / profiles 테이블 연동
+- 사진 기록(캘린더)은 미구현 — "곧 추가" 안내
 
 ---
 

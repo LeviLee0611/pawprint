@@ -53,9 +53,15 @@ create table public.pets (
 
 alter table public.pets enable row level security;
 
--- 본인 펫만 조회/수정/삭제 (개인정보 보호)
+-- 본인 펫만 insert/update/delete
 create policy "본인 펫만 관리" on public.pets
   for all using (auth.uid() = owner_id);
+
+-- 피드 join 시 타 유저 펫 이름 조회 허용 (처음 실행 시)
+create policy "피드에서 펫 이름 조회 허용" on public.pets
+  for select using (true);
+-- 참고: 이미 실행한 경우 아래 사용
+-- drop policy if exists "피드에서 펫 이름 조회 허용" on public.pets;
 
 
 -- 3. records (캘린더 일별 기록)
@@ -82,6 +88,7 @@ create policy "본인 기록만 관리" on public.records
 create table public.posts (
   id uuid default gen_random_uuid() primary key,
   owner_id uuid references public.profiles on delete cascade not null,
+  pet_id uuid references public.pets(id) on delete set null,
   content text not null,
   image_url text,
   likes_count integer default 0,
