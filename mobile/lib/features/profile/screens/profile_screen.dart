@@ -82,10 +82,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _loading = true);
     try {
       final supabase = Supabase.instance.client;
-      final userId = supabase.auth.currentUser?.id;
-      if (userId != null) {
-        // profiles 삭제 → pets, records 자동 cascade
-        await supabase.from('profiles').delete().eq('id', userId);
+      // Edge Function: Storage 파일 정리 + auth.users 삭제
+      final response = await supabase.functions.invoke('delete-account');
+      if (response.status != 200) {
+        final msg = (response.data as Map?)?['error'] ?? '탈퇴 처리에 실패했어요';
+        throw Exception(msg);
       }
       await _authService.signOut();
     } catch (e) {
