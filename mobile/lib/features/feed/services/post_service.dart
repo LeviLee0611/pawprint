@@ -121,11 +121,18 @@ class PostService {
     return (data as List).map((e) => Comment.fromJson(e)).toList();
   }
 
-  Future<Comment> addComment(String postId, String content) async {
+  Future<Comment> addComment(String postId, String content,
+      {String? parentId}) async {
     final userId = _supabase.auth.currentUser!.id;
     final data = await _supabase
         .from('comments')
-        .insert({'post_id': postId, 'owner_id': userId, 'content': content})
+        .insert({
+          'post_id': postId,
+          'owner_id': userId,
+          'content': content,
+          // ignore: use_null_aware_elements
+          if (parentId != null) 'parent_id': parentId,
+        })
         .select(_commentSelect)
         .single();
     return Comment.fromJson(data);

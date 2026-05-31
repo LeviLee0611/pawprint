@@ -24,39 +24,73 @@ class _CalendarScreenState extends State<CalendarScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 
-  Pet? _currentPet;
+  List<Pet> _pets = [];
+  String? _selectedPetId; // null = 전체
   bool _loadingPet = true;
   Map<DateTime, List<Record>> _recordsByDate = {};
+
+  static const _petColors = [
+    AppColors.primary,
+    AppColors.brown,
+    AppColors.green,
+    AppColors.peach,
+  ];
+
+  Color _petColorOf(String petId) {
+    final index = _pets.indexWhere((p) => p.id == petId);
+    return _petColors[(index < 0 ? 0 : index) % _petColors.length];
+  }
+
+  Pet? get _activePet {
+    if (_selectedPetId == null || _pets.isEmpty) return null;
+    return _pets.firstWhere((p) => p.id == _selectedPetId,
+        orElse: () => _pets.first);
+  }
 
   @override
   void initState() {
     super.initState();
-    _loadPet();
+    _loadPets();
   }
 
-  Future<void> _loadPet() async {
-    final pets = await _petService.getMyPets();
-    if (!mounted) return;
-    setState(() {
-      _currentPet = pets.isNotEmpty ? pets.first : null;
-      _loadingPet = false;
-    });
-    if (_currentPet != null) {
-      await _loadRecords(_focusedDay.year, _focusedDay.month);
+  Future<void> _loadPets() async {
+    try {
+      final pets = await _petService.getMyPets();
+      if (!mounted) return;
+      setState(() {
+        _pets = pets;
+        _selectedPetId = null;
+      });
+      if (_pets.isNotEmpty) {
+        await _loadRecords(_focusedDay.year, _focusedDay.month);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('펫 정보를 불러오지 못했어요: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingPet = false);
     }
   }
 
   Future<void> _loadRecords(int year, int month) async {
-    if (_currentPet == null) return;
-    final records =
-        await _recordService.getRecordsForMonth(_currentPet!.id, year, month);
-    if (!mounted) return;
-    final map = <DateTime, List<Record>>{};
-    for (final r in records) {
-      final key = DateTime(r.date.year, r.date.month, r.date.day);
-      (map[key] ??= []).add(r);
+    try {
+      final records = _selectedPetId == null
+          ? await _recordService.getRecordsForMonthAllPets(year, month)
+          : await _recordService.getRecordsForMonth(
+              _selectedPetId!, year, month);
+      if (!mounted) return;
+      final map = <DateTime, List<Record>>{};
+      for (final r in records) {
+        final key = DateTime(r.date.year, r.date.month, r.date.day);
+        (map[key] ??= []).add(r);
+      }
+      setState(() => _recordsByDate = map);
+    } catch (_) {
+      if (mounted) setState(() => _recordsByDate = {});
     }
-    setState(() => _recordsByDate = map);
   }
 
   List<Record> _getEventsForDay(DateTime day) {
@@ -70,7 +104,45 @@ class _CalendarScreenState extends State<CalendarScreen> {
     });
   }
 
+  Future<Pet?> _pickPet() async {
+    if (_pets.length == 1) return _pets.first;
+    return showDialog<Pet>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          '어느 아이 기록인가요?',
+          style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary),
+        ),
+        children: _pets
+            .map((pet) => SimpleDialogOption(
+                  onPressed: () => Navigator.pop(ctx, pet),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(children: [
+                      Text(pet.emoji, style: const TextStyle(fontSize: 24)),
+                      const SizedBox(width: 12),
+                      Text(pet.name,
+                          style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary)),
+                    ]),
+                  ),
+                ))
+            .toList(),
+      ),
+    );
+  }
+
   Future<void> _showRecordSheet(DateTime date) async {
+    final pet = _selectedPetId != null ? _activePet : await _pickPet();
+    if (pet == null || !mounted) return;
+
     final selectedType = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -86,11 +158,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final saved = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => AddRecordScreen(
-          date: date,
-          pet: _currentPet!,
-          type: selectedType,
-        ),
+        builder: (_) =>
+            AddRecordScreen(date: date, pet: pet, type: selectedType),
       ),
     );
 
@@ -110,21 +179,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          children: [
-            const Text('🐾 냥발도장'),
-            if (_currentPet != null) ...[
-              const SizedBox(width: 8),
-              Text(
-                '${_currentPet!.emoji} ${_currentPet!.name}',
-                style: const TextStyle(
-                    fontSize: 14, color: AppColors.textSecondary),
-              ),
-            ],
-          ],
-        ),
+        title: Text(_activePet != null
+            ? '${_activePet!.emoji} ${_activePet!.name}'
+            : '🐾 냥발도장'),
         actions: [
-          if (_currentPet != null)
+          if (_pets.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.add_circle_outline),
               color: AppColors.primary,
@@ -134,7 +193,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ),
         ],
       ),
-      body: _currentPet == null ? _buildNoPetState() : _buildCalendar(),
+      body: _pets.isEmpty ? _buildNoPetState() : _buildCalendar(),
     );
   }
 
@@ -157,7 +216,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
             const SizedBox(height: 8),
             const Text(
               '펫을 등록하고 매일 기록을 남겨보세요',
-              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+              style:
+                  TextStyle(fontSize: 14, color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 28),
@@ -166,9 +226,10 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 await Navigator.push(
                   context,
                   MaterialPageRoute(
-                      builder: (_) => const AddPetScreen(isOnboarding: false)),
+                      builder: (_) =>
+                          const AddPetScreen(isOnboarding: false)),
                 );
-                await _loadPet();
+                await _loadPets();
               },
               child: const Text('펫 등록하기'),
             ),
@@ -178,12 +239,53 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
+  Widget _buildPetFilterChips() {
+    return SizedBox(
+      height: 38,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        children: [
+          _PetFilterChip(
+            label: '전체',
+            emoji: '🐾',
+            selected: _selectedPetId == null,
+            color: AppColors.primary,
+            onTap: () {
+              if (_selectedPetId == null) return;
+              setState(() => _selectedPetId = null);
+              _loadRecords(_focusedDay.year, _focusedDay.month);
+            },
+          ),
+          ..._pets.asMap().entries.map((e) => _PetFilterChip(
+                label: e.value.name,
+                emoji: e.value.emoji,
+                selected: _selectedPetId == e.value.id,
+                color: _petColors[e.key % _petColors.length],
+                onTap: () {
+                  if (_selectedPetId == e.value.id) return;
+                  setState(() => _selectedPetId = e.value.id);
+                  _loadRecords(_focusedDay.year, _focusedDay.month);
+                },
+              )),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCalendar() {
     final selectedRecords =
         _selectedDay != null ? _getEventsForDay(_selectedDay!) : <Record>[];
+    final showPetBadge = _selectedPetId == null && _pets.length > 1;
+    final petMap = {for (final p in _pets) p.id: p};
 
     return Column(
       children: [
+        if (_pets.length > 1) ...[
+          const SizedBox(height: 8),
+          _buildPetFilterChips(),
+          const SizedBox(height: 4),
+        ],
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
@@ -211,15 +313,24 @@ class _CalendarScreenState extends State<CalendarScreen> {
             calendarBuilders: CalendarBuilders(
               markerBuilder: (context, day, events) {
                 if (events.isEmpty) return null;
+                final petIds = events.map((e) => e.petId).toSet().toList();
                 return Positioned(
                   bottom: 4,
-                  child: Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: AppColors.primary,
-                      shape: BoxShape.circle,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: petIds
+                        .take(3)
+                        .map((petId) => Container(
+                              width: 5,
+                              height: 5,
+                              margin:
+                                  const EdgeInsets.symmetric(horizontal: 1),
+                              decoration: BoxDecoration(
+                                color: _petColorOf(petId),
+                                shape: BoxShape.circle,
+                              ),
+                            ))
+                        .toList(),
                   ),
                 );
               },
@@ -236,7 +347,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               todayTextStyle: TextStyle(
                   color: AppColors.primaryDark, fontWeight: FontWeight.bold),
               weekendTextStyle: TextStyle(color: AppColors.peach),
-              markersMaxCount: 1,
+              markersMaxCount: 3,
             ),
             headerStyle: const HeaderStyle(
               formatButtonVisible: false,
@@ -258,14 +369,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ),
           ),
         ),
-        const Divider(height: 1, indent: 16, endIndent: 16,
+        const Divider(
+            height: 1,
+            indent: 16,
+            endIndent: 16,
             color: Color(0xFFEDE8E3)),
         Expanded(
           child: _selectedDay == null
               ? _buildNoDateSelected()
               : selectedRecords.isEmpty
                   ? _buildEmptyDayState(_selectedDay!)
-                  : _buildDayRecords(selectedRecords),
+                  : _buildDayRecords(selectedRecords,
+                      showPetBadge: showPetBadge, petMap: petMap),
         ),
       ],
     );
@@ -280,8 +395,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               size: 36, color: AppColors.textHint),
           const SizedBox(height: 10),
           const Text('날짜를 선택하면 기록을 볼 수 있어요',
-              style:
-                  TextStyle(fontSize: 13, color: AppColors.textHint)),
+              style: TextStyle(fontSize: 13, color: AppColors.textHint)),
         ],
       ),
     );
@@ -315,7 +429,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  Widget _buildDayRecords(List<Record> records) {
+  Widget _buildDayRecords(
+    List<Record> records, {
+    required bool showPetBadge,
+    required Map<String, Pet> petMap,
+  }) {
     final dateLabel = _selectedDay != null
         ? DateFormat('M월 d일', 'ko').format(_selectedDay!)
         : '';
@@ -339,8 +457,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
               label: const Text('추가'),
               style: TextButton.styleFrom(
                 foregroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               ),
             ),
           ],
@@ -348,11 +466,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
         const SizedBox(height: 4),
         ...records.map((r) => _RecordTile(
               record: r,
+              pet: showPetBadge ? petMap[r.petId] : null,
               onDelete: () async {
                 await RecordService().deleteRecord(r.id);
                 if (mounted) {
-                  await _loadRecords(
-                      _focusedDay.year, _focusedDay.month);
+                  await _loadRecords(_focusedDay.year, _focusedDay.month);
                 }
               },
             )),
@@ -361,11 +479,64 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 }
 
+class _PetFilterChip extends StatelessWidget {
+  final String label;
+  final String emoji;
+  final bool selected;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _PetFilterChip({
+    required this.label,
+    required this.emoji,
+    required this.selected,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        margin: const EdgeInsets.only(right: 8),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? color : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? color : AppColors.brownLight,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 13)),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: selected ? Colors.white : AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _RecordTile extends StatelessWidget {
   final Record record;
+  final Pet? pet; // 전체 모드일 때만 non-null
   final VoidCallback? onDelete;
 
-  const _RecordTile({required this.record, this.onDelete});
+  const _RecordTile({required this.record, this.pet, this.onDelete});
 
   @override
   Widget build(BuildContext context) {
@@ -391,12 +562,33 @@ class _RecordTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  record.label,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                      fontSize: 14),
+                Row(
+                  children: [
+                    Text(
+                      record.label,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                          fontSize: 14),
+                    ),
+                    if (pet != null) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.card,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${pet!.emoji} ${pet!.name}',
+                          style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textSecondary),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 if (record.value != null)
                   Text(

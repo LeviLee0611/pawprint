@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/post_model.dart';
 import '../services/post_service.dart';
+import '../widgets/report_bottom_sheet.dart';
 
 class PostDetailScreen extends StatefulWidget {
   final Post post;
@@ -17,24 +19,33 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   final _postService = PostService();
   final _commentController = TextEditingController();
   final _scrollController = ScrollController();
+  final _commentFocusNode = FocusNode();
 
   List<Comment> _comments = [];
   bool _loadingComments = true;
   bool _submittingComment = false;
   late Post _post;
+  Comment? _replyingTo;
+
+  Map<String?, List<Comment>> get _grouped {
+    final map = <String?, List<Comment>>{};
+    for (final c in _comments) {
+      (map[c.parentId] ??= []).add(c);
+    }
+    return map;
+  }
 
   @override
   void initState() {
     super.initState();
-    // 내 글이면 이름/아바타 주입
     final me = Supabase.instance.client.auth.currentUser;
     if (widget.post.ownerId == me?.id && widget.post.ownerName == null) {
-      final myName = (me?.userMetadata?['full_name']
-              ?? me?.userMetadata?['name']
-              ?? '나') as String;
+      final myName = (me?.userMetadata?['full_name'] ??
+          me?.userMetadata?['name'] ??
+          '사용자') as String;
       final myAvatar = me?.userMetadata?['avatar_url'] as String?;
-      _post = widget.post.copyWith(
-          ownerName: myName, ownerAvatarUrl: myAvatar);
+      _post =
+          widget.post.copyWith(ownerName: myName, ownerAvatarUrl: myAvatar);
     } else {
       _post = widget.post;
     }
@@ -45,6 +56,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   void dispose() {
     _commentController.dispose();
     _scrollController.dispose();
+    _commentFocusNode.dispose();
     super.dispose();
   }
 
@@ -73,41 +85,45 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     }
   }
 
+  void _startReply(Comment comment) {
+    setState(() => _replyingTo = comment);
+    _commentFocusNode.requestFocus();
+  }
+
   Future<void> _submitComment() async {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
     setState(() => _submittingComment = true);
     try {
-      var comment = await _postService.addComment(_post.id, text);
-      // 내 이름/아바타 주입 (profiles join 없이)
-      final me = Supabase.instance.client.auth.currentUser;
-      final myName = (me?.userMetadata?['full_name']
-              ?? me?.userMetadata?['name']
-              ?? '나') as String;
-      final myAvatar = me?.userMetadata?['avatar_url'] as String?;
-      comment = Comment(
-        id: comment.id,
-        postId: comment.postId,
-        ownerId: comment.ownerId,
-        content: comment.content,
-        createdAt: comment.createdAt,
-        ownerName: myName,
-        ownerAvatarUrl: myAvatar,
-      );
+      final parentId = _replyingTo == null
+          ? null
+          : (_replyingTo!.parentId ?? _replyingTo!.id);
+
+      var comment =
+          await _postService.addComment(_post.id, text, parentId: parentId);
+      if (comment.ownerName == null) {
+        final me = Supabase.instance.client.auth.currentUser;
+        final myName = (me?.userMetadata?['full_name'] ??
+            me?.userMetadata?['name'] ??
+            '사용자') as String;
+        final myAvatar = me?.userMetadata?['avatar_url'] as String?;
+        comment = Comment(
+          id: comment.id,
+          postId: comment.postId,
+          ownerId: comment.ownerId,
+          parentId: comment.parentId,
+          content: comment.content,
+          createdAt: comment.createdAt,
+          ownerName: myName,
+          ownerAvatarUrl: myAvatar,
+        );
+      }
       if (!mounted) return;
       _commentController.clear();
       setState(() {
+        _replyingTo = null;
         _comments.add(comment);
         _post = _post.copyWith(commentsCount: _post.commentsCount + 1);
-      });
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
       });
     } catch (e) {
       if (mounted) {
@@ -121,18 +137,27 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
   }
 
   Future<void> _deleteComment(Comment comment) async {
+    final isTopLevel = comment.parentId == null;
+    final childCount = isTopLevel
+        ? _comments.where((c) => c.parentId == comment.id).length
+        : 0;
     try {
       await _postService.deleteComment(comment.id);
       if (!mounted) return;
       setState(() {
-        _comments.removeWhere((c) => c.id == comment.id);
-        _post = _post.copyWith(commentsCount: _post.commentsCount - 1);
+        if (isTopLevel) {
+          _comments.removeWhere(
+              (c) => c.id == comment.id || c.parentId == comment.id);
+        } else {
+          _comments.removeWhere((c) => c.id == comment.id);
+        }
+        _post = _post.copyWith(
+            commentsCount: _post.commentsCount - 1 - childCount);
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('삭제 실패: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('삭제 실패: $e')));
       }
     }
   }
@@ -141,8 +166,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('게시글 삭제',
             style: TextStyle(fontWeight: FontWeight.bold)),
         content: const Text('게시글을 삭제하시겠어요?'),
@@ -166,12 +191,81 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     }
   }
 
+  void _showPostOptions(bool isMyPost) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: isMyPost
+                    ? ListTile(
+                        leading: const Icon(Icons.delete_outline,
+                            color: Colors.red),
+                        title: const Text('삭제',
+                            style: TextStyle(
+                                color: Colors.red,
+                                fontWeight: FontWeight.w600)),
+                        onTap: () {
+                          Navigator.pop(context);
+                          _deletePost();
+                        },
+                      )
+                    : ListTile(
+                        leading: const Icon(Icons.flag_outlined,
+                            color: AppColors.textSecondary),
+                        title: const Text('신고',
+                            style: TextStyle(
+                                color: AppColors.textSecondary)),
+                        onTap: () {
+                          Navigator.pop(context);
+                          showReportSheet(context,
+                              targetType: 'post',
+                              targetId: _post.id);
+                        },
+                      ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: ListTile(
+                  onTap: () => Navigator.pop(context),
+                  title: const Text('취소',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final myId = Supabase.instance.client.auth.currentUser?.id;
     final isMyPost = _post.ownerId == myId;
+    bool canDelete(Comment c) => c.ownerId == myId || isMyPost;
+    bool canReport(Comment c) => c.ownerId != myId;
+    final grouped = _grouped;
+    final topLevel = grouped[null] ?? [];
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('게시글'),
@@ -180,11 +274,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
           child: Divider(height: 1, color: Color(0xFFEDE8E3)),
         ),
         actions: [
-          if (isMyPost)
-            IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-              onPressed: _deletePost,
-            ),
+          IconButton(
+            icon: const Icon(Icons.more_vert),
+            onPressed: () => _showPostOptions(isMyPost),
+          ),
         ],
       ),
       body: Column(
@@ -193,14 +286,8 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             child: ListView(
               controller: _scrollController,
               children: [
-                // ── 원글 ──────────────────────────────────
-                _OriginalPost(
-                  post: _post,
-                  onLike: _toggleLike,
-                ),
+                _OriginalPost(post: _post, onLike: _toggleLike),
                 const Divider(height: 1, color: Color(0xFFEDE8E3)),
-
-                // ── 댓글 헤더 ─────────────────────────────
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                   child: Text(
@@ -212,8 +299,6 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         letterSpacing: 0.3),
                   ),
                 ),
-
-                // ── 댓글 목록 ─────────────────────────────
                 if (_loadingComments)
                   const Center(
                     child: Padding(
@@ -222,43 +307,54 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                           color: AppColors.primary),
                     ),
                   )
-                else if (_comments.isEmpty)
+                else if (topLevel.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(
                         vertical: 32, horizontal: 16),
                     child: Center(
-                      child: Text(
-                        '첫 댓글을 남겨봐요 🐾',
-                        style: TextStyle(
-                            color: AppColors.textHint, fontSize: 14),
-                      ),
+                      child: Text('첫 댓글을 남겨봐요 🐾',
+                          style: TextStyle(
+                              color: AppColors.textHint, fontSize: 14)),
                     ),
                   )
                 else
-                  ...List.generate(_comments.length, (i) {
-                    final c = _comments[i];
-                    final isLast = i == _comments.length - 1;
-                    return Column(
-                      children: [
-                        _CommentRow(
-                          comment: c,
-                          isMine: c.ownerId == myId,
-                          onDelete: () => _deleteComment(c),
-                        ),
-                        if (!isLast)
-                          const Divider(
-                              height: 1,
-                              indent: 68,
-                              color: Color(0xFFEDE8E3)),
-                      ],
-                    );
-                  }),
+                  ...topLevel.map((c) => _CommentThread(
+                        comment: c,
+                        replies: grouped[c.id] ?? [],
+                        canDelete: canDelete,
+                        canReport: canReport,
+                        onReply: _startReply,
+                        onDelete: _deleteComment,
+                      )),
                 const SizedBox(height: 16),
               ],
             ),
           ),
 
-          // ── 댓글 입력창 ───────────────────────────────
+          // 답글 달기 배너
+          if (_replyingTo != null)
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: AppColors.card,
+              child: Row(
+                children: [
+                  Text(
+                    '${_replyingTo!.ownerName ?? '사용자'}에게 답글',
+                    style: const TextStyle(
+                        fontSize: 13, color: AppColors.textSecondary),
+                  ),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => setState(() => _replyingTo = null),
+                    child: const Icon(Icons.close,
+                        size: 16, color: AppColors.textHint),
+                  ),
+                ],
+              ),
+            ),
+
+          // 댓글 입력창
           Container(
             padding: EdgeInsets.only(
               left: 16,
@@ -278,8 +374,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                   Expanded(
                     child: TextField(
                       controller: _commentController,
+                      focusNode: _commentFocusNode,
                       decoration: InputDecoration(
-                        hintText: '댓글 달기...',
+                        hintText: _replyingTo != null
+                            ? '답글 달기...'
+                            : '댓글 달기...',
                         hintStyle: const TextStyle(
                             color: AppColors.textHint, fontSize: 14),
                         filled: true,
@@ -344,7 +443,6 @@ class _OriginalPost extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 작성자 행
           Row(
             children: [
               _CircleAv(url: post.ownerAvatarUrl, size: 42),
@@ -353,7 +451,7 @@ class _OriginalPost extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(post.ownerName ?? '익명',
+                    Text(post.ownerName ?? '사용자',
                         style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 15,
@@ -374,17 +472,11 @@ class _OriginalPost extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-
-          // 본문
-          Text(
-            post.content,
-            style: const TextStyle(
-                fontSize: 16,
-                color: AppColors.textPrimary,
-                height: 1.6),
-          ),
-
-          // 이미지
+          Text(post.content,
+              style: const TextStyle(
+                  fontSize: 16,
+                  color: AppColors.textPrimary,
+                  height: 1.6)),
           if (post.imageUrl != null) ...[
             const SizedBox(height: 12),
             ClipRRect(
@@ -398,22 +490,16 @@ class _OriginalPost extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 14),
-
-          // 좋아요 수 텍스트
           if (post.likesCount > 0) ...[
-            Text(
-              '좋아요 ${post.likesCount}개',
-              style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary),
-            ),
+            Text('좋아요 ${post.likesCount}개',
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary)),
             const SizedBox(height: 10),
             const Divider(height: 1, color: Color(0xFFEDE8E3)),
             const SizedBox(height: 10),
           ],
-
-          // 액션 버튼
           Row(
             children: [
               _LikeBtn(isLiked: post.isLikedByMe, onTap: onLike),
@@ -449,65 +535,293 @@ class _LikeBtn extends StatelessWidget {
   }
 }
 
-// ── 댓글 행 위젯 ──────────────────────────────────────────
+// ── 댓글 ⋮ 옵션 바텀시트 ──────────────────────────────────
 
-class _CommentRow extends StatelessWidget {
+void _showCommentOptions(
+  BuildContext context, {
+  required String content,
+  required String commentId,
+  required bool canDelete,
+  required bool canReport,
+  required VoidCallback onDelete,
+}) {
+  final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    builder: (_) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 복사 (항상)
+                  ListTile(
+                    leading: const Icon(Icons.copy_outlined,
+                        color: AppColors.textPrimary),
+                    title: const Text('복사'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Clipboard.setData(ClipboardData(text: content));
+                      scaffoldMessenger.showSnackBar(
+                        const SnackBar(
+                            content: Text('복사됐어요'),
+                            duration: Duration(seconds: 1)),
+                      );
+                    },
+                  ),
+                  if (canDelete) ...[
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.delete_outline,
+                          color: Colors.red),
+                      title: const Text('삭제',
+                          style: TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.w600)),
+                      onTap: () {
+                        Navigator.pop(context);
+                        onDelete();
+                      },
+                    ),
+                  ],
+                  if (canReport) ...[
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.flag_outlined,
+                          color: AppColors.textSecondary),
+                      title: const Text('신고',
+                          style: TextStyle(
+                              color: AppColors.textSecondary)),
+                      onTap: () {
+                        Navigator.pop(context);
+                        showReportSheet(context,
+                            targetType: 'comment',
+                            targetId: commentId);
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: ListTile(
+                onTap: () => Navigator.pop(context),
+                title: const Text('취소',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+// ── 댓글 스레드 위젯 ──────────────────────────────────────
+
+class _CommentThread extends StatelessWidget {
   final Comment comment;
-  final bool isMine;
-  final VoidCallback onDelete;
+  final List<Comment> replies;
+  final bool Function(Comment) canDelete;
+  final bool Function(Comment) canReport;
+  final void Function(Comment) onReply;
+  final void Function(Comment) onDelete;
 
-  const _CommentRow(
-      {required this.comment,
-      required this.isMine,
-      required this.onDelete});
+  const _CommentThread({
+    required this.comment,
+    required this.replies,
+    required this.canDelete,
+    required this.canReport,
+    required this.onReply,
+    required this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final hasReplies = replies.isNotEmpty;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _CircleAv(url: comment.ownerAvatarUrl, size: 34),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      comment.ownerName ?? '익명',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 13,
-                          color: AppColors.textPrimary),
-                    ),
-                    const Spacer(),
-                    if (isMine)
-                      GestureDetector(
-                        onTap: onDelete,
-                        child: const Icon(Icons.close,
-                            size: 15, color: AppColors.textHint),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 아바타 + 세로선
+            SizedBox(
+              width: 42,
+              child: Column(
+                children: [
+                  _CircleAv(url: comment.ownerAvatarUrl, size: 42),
+                  if (hasReplies)
+                    Expanded(
+                      child: Center(
+                        child: Container(
+                          width: 2,
+                          margin:
+                              const EdgeInsets.symmetric(vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEDE8E3),
+                            borderRadius: BorderRadius.circular(1),
+                          ),
+                        ),
                       ),
-                  ],
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  comment.content,
-                  style: const TextStyle(
-                      fontSize: 14,
-                      color: AppColors.textPrimary,
-                      height: 1.4),
-                ),
-              ],
+                    ),
+                ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            // 댓글 내용 + 답글들
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(comment.ownerName ?? '사용자',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              color: AppColors.textPrimary)),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => _showCommentOptions(
+                          context,
+                          content: comment.content,
+                          commentId: comment.id,
+                          canDelete: canDelete(comment),
+                          canReport: canReport(comment),
+                          onDelete: () => onDelete(comment),
+                        ),
+                        child: const Icon(Icons.more_vert,
+                            size: 18, color: AppColors.textHint),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(comment.content,
+                      style: const TextStyle(
+                          fontSize: 14,
+                          color: AppColors.textPrimary,
+                          height: 1.4)),
+                  const SizedBox(height: 6),
+                  GestureDetector(
+                    onTap: () => onReply(comment),
+                    child: const Text('답글 달기',
+                        style: TextStyle(
+                            fontSize: 12, color: AppColors.textHint)),
+                  ),
+                  // 답글 목록
+                  ...replies.map((r) => Padding(
+                        padding: const EdgeInsets.only(top: 14),
+                        child: _ReplyRow(
+                          reply: r,
+                          canDelete: canDelete(r),
+                          canReport: canReport(r),
+                          onReply: () => onReply(r),
+                          onDelete: () => onDelete(r),
+                        ),
+                      )),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
+
+// ── 답글 행 위젯 ───────────────────────────────────────────
+
+class _ReplyRow extends StatelessWidget {
+  final Comment reply;
+  final bool canDelete;
+  final bool canReport;
+  final VoidCallback onReply;
+  final VoidCallback onDelete;
+
+  const _ReplyRow({
+    required this.reply,
+    required this.canDelete,
+    required this.canReport,
+    required this.onReply,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _CircleAv(url: reply.ownerAvatarUrl, size: 32),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(reply.ownerName ?? '사용자',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 13,
+                          color: AppColors.textPrimary)),
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => _showCommentOptions(
+                      context,
+                      content: reply.content,
+                      commentId: reply.id,
+                      canDelete: canDelete,
+                      canReport: canReport,
+                      onDelete: onDelete,
+                    ),
+                    child: const Icon(Icons.more_vert,
+                        size: 17, color: AppColors.textHint),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(reply.content,
+                  style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textPrimary,
+                      height: 1.4)),
+              const SizedBox(height: 4),
+              GestureDetector(
+                onTap: onReply,
+                child: const Text('답글 달기',
+                    style: TextStyle(
+                        fontSize: 11, color: AppColors.textHint)),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── 공통 위젯 ─────────────────────────────────────────────
 
 class _CircleAv extends StatelessWidget {
   final String? url;

@@ -80,6 +80,7 @@ class Comment {
   final String id;
   final String postId;
   final String ownerId;
+  final String? parentId;
   final String content;
   final DateTime createdAt;
   final String? ownerName;
@@ -89,6 +90,7 @@ class Comment {
     required this.id,
     required this.postId,
     required this.ownerId,
+    this.parentId,
     required this.content,
     required this.createdAt,
     this.ownerName,
@@ -101,6 +103,7 @@ class Comment {
       id: json['id'] as String,
       postId: json['post_id'] as String,
       ownerId: json['owner_id'] as String,
+      parentId: json['parent_id'] as String?,
       content: json['content'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
       ownerName: profile?['display_name'] as String?,

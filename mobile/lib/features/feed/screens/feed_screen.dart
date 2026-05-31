@@ -8,6 +8,7 @@ import '../models/post_model.dart';
 import '../services/post_service.dart';
 import 'add_post_screen.dart';
 import 'post_detail_screen.dart';
+import '../widgets/report_bottom_sheet.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -198,6 +199,9 @@ class _ThreadPost extends StatelessWidget {
         ? '${post.petType == 'cat' ? '🐱' : '🐶'} ${post.petName}'
         : null;
 
+    final myId = Supabase.instance.client.auth.currentUser?.id;
+    final isMyPost = post.ownerId == myId;
+
     return InkWell(
       onTap: onTap,
       splashColor: AppColors.primaryLight.withValues(alpha: 0.3),
@@ -219,7 +223,7 @@ class _ThreadPost extends StatelessWidget {
                   Row(
                     children: [
                       Text(
-                        post.ownerName ?? '익명',
+                        post.ownerName ?? '사용자',
                         style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
@@ -246,6 +250,15 @@ class _ThreadPost extends StatelessWidget {
                           style: const TextStyle(
                               fontSize: 12,
                               color: AppColors.textHint)),
+                      if (!isMyPost) ...[
+                        const SizedBox(width: 4),
+                        GestureDetector(
+                          onTap: () => showReportSheet(context,
+                              targetType: 'post', targetId: post.id),
+                          child: const Icon(Icons.more_vert,
+                              size: 18, color: AppColors.textHint),
+                        ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 5),

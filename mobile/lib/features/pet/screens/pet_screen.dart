@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/pet_model.dart';
 import '../screens/add_pet_screen.dart';
+import '../screens/edit_pet_screen.dart';
 import '../services/pet_service.dart';
 
 class PetScreen extends StatefulWidget {
@@ -47,8 +48,19 @@ class _PetScreenState extends State<PetScreen> {
                   : ListView.builder(
                       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
                       itemCount: _pets.length,
-                      itemBuilder: (context, index) =>
-                          _PetCard(pet: _pets[index]),
+                      itemBuilder: (context, index) => _PetCard(
+                          pet: _pets[index],
+                          onEdit: () async {
+                            final updated = await Navigator.push<bool>(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    EditPetScreen(pet: _pets[index]),
+                              ),
+                            );
+                            if (updated == true) await _loadPets();
+                          },
+                        ),
                     ),
             ),
       floatingActionButton: FloatingActionButton.extended(
@@ -96,8 +108,9 @@ class _PetScreenState extends State<PetScreen> {
 
 class _PetCard extends StatelessWidget {
   final Pet pet;
+  final VoidCallback? onEdit;
 
-  const _PetCard({required this.pet});
+  const _PetCard({required this.pet, this.onEdit});
 
   String _ageString(DateTime? birthday) {
     if (birthday == null) return '';
@@ -120,6 +133,10 @@ class _PetCard extends StatelessWidget {
         return '암컷';
       case 'neutered':
         return '중성화';
+      case 'male_neutered':
+        return '수컷 · 중성화';
+      case 'female_neutered':
+        return '암컷 · 중성화';
       default:
         return '';
     }
@@ -172,6 +189,16 @@ class _PetCard extends StatelessWidget {
                       const SizedBox(width: 6),
                       Text(pet.emoji,
                           style: const TextStyle(fontSize: 17)),
+                      const Spacer(),
+                      if (onEdit != null)
+                        GestureDetector(
+                          onTap: onEdit,
+                          child: const Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Icon(Icons.edit_outlined,
+                                size: 18, color: AppColors.textHint),
+                          ),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 4),

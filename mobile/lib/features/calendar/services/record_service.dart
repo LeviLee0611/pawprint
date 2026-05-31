@@ -23,6 +23,26 @@ class RecordService {
     return (data as List).map((e) => Record.fromJson(e)).toList();
   }
 
+  Future<List<Record>> getRecordsForMonthAllPets(int year, int month) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return [];
+    final lastDay = DateTime(year, month + 1, 0).day;
+    final start =
+        '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-01';
+    final end =
+        '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-${lastDay.toString().padLeft(2, '0')}';
+
+    final data = await _supabase
+        .from('records')
+        .select()
+        .eq('owner_id', userId)
+        .gte('date', start)
+        .lte('date', end)
+        .order('created_at');
+
+    return (data as List).map((e) => Record.fromJson(e)).toList();
+  }
+
   Future<void> addRecord({
     required String petId,
     required DateTime date,

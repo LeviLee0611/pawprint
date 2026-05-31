@@ -21,6 +21,74 @@ class PetService {
     return (data as List).map((e) => Pet.fromJson(e)).toList();
   }
 
+  Future<void> updatePet({
+    required String petId,
+    required String name,
+    required String type,
+    String? gender,
+    DateTime? birthday,
+    String? breed,
+    File? newProfileImage,
+    String? existingPhotoUrl,
+  }) async {
+    final userId = _supabase.auth.currentUser!.id;
+    String? photoUrl = existingPhotoUrl;
+
+    String? newStoragePath;
+    if (newProfileImage != null) {
+      final ext = newProfileImage.path.split('.').last.toLowerCase();
+      if (!_allowedExtensions.contains(ext)) {
+        throw Exception('jpg, png 파일만 업로드할 수 있어요');
+      }
+      final size = await newProfileImage.length();
+      if (size > _maxFileSizeBytes) {
+        throw Exception('파일 크기는 5MB 이하여야 해요');
+      }
+      newStoragePath = '$userId/${DateTime.now().millisecondsSinceEpoch}.$ext';
+      await _supabase.storage
+          .from('pet-photos')
+          .upload(newStoragePath, newProfileImage);
+      photoUrl =
+          _supabase.storage.from('pet-photos').getPublicUrl(newStoragePath);
+    }
+
+    try {
+      await _supabase.from('pets').update({
+        'name': name,
+        'type': type,
+        'gender': gender,
+        'birth_date': birthday?.toIso8601String().split('T').first,
+        'breed': breed,
+        'photo_url': photoUrl,
+      }).eq('id', petId);
+    } catch (e) {
+      // DB 실패 시 새로 업로드한 파일 정리
+      if (newStoragePath != null) {
+        try {
+          await _supabase.storage.from('pet-photos').remove([newStoragePath]);
+        } catch (_) {}
+      }
+      rethrow;
+    }
+
+    // DB 성공 후 기존 사진 정리
+    if (newProfileImage != null && existingPhotoUrl != null) {
+      final oldPath = _storagePath(existingPhotoUrl, 'pet-photos');
+      if (oldPath != null) {
+        try {
+          await _supabase.storage.from('pet-photos').remove([oldPath]);
+        } catch (_) {}
+      }
+    }
+  }
+
+  String? _storagePath(String url, String bucket) {
+    final marker = '/object/public/$bucket/';
+    final idx = url.indexOf(marker);
+    if (idx == -1) return null;
+    return url.substring(idx + marker.length);
+  }
+
   Future<Pet> addPet({
     required String name,
     required String type,

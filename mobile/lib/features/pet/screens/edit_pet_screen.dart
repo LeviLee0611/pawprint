@@ -2,27 +2,27 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_theme.dart';
+import '../models/pet_model.dart';
 import '../services/pet_service.dart';
 
-class AddPetScreen extends StatefulWidget {
-  final bool isOnboarding;
-  final VoidCallback? onSkip;
-  const AddPetScreen({super.key, this.isOnboarding = false, this.onSkip});
+class EditPetScreen extends StatefulWidget {
+  final Pet pet;
+  const EditPetScreen({super.key, required this.pet});
 
   @override
-  State<AddPetScreen> createState() => _AddPetScreenState();
+  State<EditPetScreen> createState() => _EditPetScreenState();
 }
 
-class _AddPetScreenState extends State<AddPetScreen> {
+class _EditPetScreenState extends State<EditPetScreen> {
   final _petService = PetService();
-  final _nameController = TextEditingController();
-  final _breedController = TextEditingController();
+  late final TextEditingController _nameController;
+  late final TextEditingController _breedController;
 
-  String _type = 'cat';
-  bool _isMale = false;
-  bool _isFemale = false;
-  bool _isNeutered = false;
-  DateTime? _birthday;
+  late String _type;
+  late bool _isMale;
+  late bool _isFemale;
+  late bool _isNeutered;
+  late DateTime? _birthday;
 
   String? get _genderValue {
     if (_isMale && _isNeutered) return 'male_neutered';
@@ -32,8 +32,21 @@ class _AddPetScreenState extends State<AddPetScreen> {
     if (_isNeutered) return 'neutered';
     return null;
   }
-  File? _profileImage;
+  File? _newProfileImage;
   bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.pet.name);
+    _breedController = TextEditingController(text: widget.pet.breed ?? '');
+    _type = widget.pet.type;
+    final g = widget.pet.gender;
+    _isMale = g == 'male' || g == 'male_neutered';
+    _isFemale = g == 'female' || g == 'female_neutered';
+    _isNeutered = g == 'neutered' || g == 'male_neutered' || g == 'female_neutered';
+    _birthday = widget.pet.birthday;
+  }
 
   @override
   void dispose() {
@@ -44,15 +57,16 @@ class _AddPetScreenState extends State<AddPetScreen> {
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
-    if (picked != null) setState(() => _profileImage = File(picked.path));
+    final picked =
+        await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+    if (picked != null) setState(() => _newProfileImage = File(picked.path));
   }
 
   Future<void> _pickBirthday() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: now,
+      initialDate: _birthday ?? now,
       firstDate: DateTime(now.year - 20),
       lastDate: now,
       initialEntryMode: DatePickerEntryMode.calendarOnly,
@@ -76,26 +90,25 @@ class _AddPetScreenState extends State<AddPetScreen> {
 
     setState(() => _loading = true);
     try {
-      await _petService.addPet(
+      await _petService.updatePet(
+        petId: widget.pet.id,
         name: _nameController.text.trim(),
         type: _type,
         gender: _genderValue,
         birthday: _birthday,
-        breed: _breedController.text.trim().isEmpty ? null : _breedController.text.trim(),
-        profileImage: _profileImage,
+        breed: _breedController.text.trim().isEmpty
+            ? null
+            : _breedController.text.trim(),
+        newProfileImage: _newProfileImage,
+        existingPhotoUrl: widget.pet.profileImageUrl,
       );
-
-      if (mounted) {
-        if (widget.isOnboarding) {
-          widget.onSkip?.call(); // PetGate가 App()으로 전환
-        } else {
-          Navigator.of(context).pop(true);
-        }
-      }
+      if (mounted) Navigator.of(context).pop(true);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('오류가 발생했어요: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('오류가 발생했어요: $e'),
+              backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -107,46 +120,16 @@ class _AddPetScreenState extends State<AddPetScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: widget.isOnboarding
-          ? AppBar(
-              backgroundColor: AppColors.background,
-              elevation: 0,
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    widget.onSkip?.call();
-                  },
-                  child: const Text('나중에', style: TextStyle(color: AppColors.textSecondary, fontSize: 16, fontWeight: FontWeight.w600)),
-                ),
-              ],
-            )
-          : AppBar(title: const Text('펫 추가'), backgroundColor: AppColors.background),
+      appBar: AppBar(
+        title: Text('${widget.pet.emoji} ${widget.pet.name} 수정'),
+        backgroundColor: AppColors.background,
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (widget.isOnboarding) ...[
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Image.asset('assets/images/포포얼굴사진.png', height: 60),
-                    const SizedBox(width: 12),
-                    const Text(
-                      '아이를\n소개해주세요!',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary, height: 1.4),
-                    ),
-                    const SizedBox(width: 12),
-                    Image.asset('assets/images/토토얼굴사진.png', height: 60),
-                  ],
-                ),
-                const SizedBox(height: 24),
-              ],
-
               // 프로필 사진
               Center(
                 child: Column(
@@ -158,9 +141,19 @@ class _AddPetScreenState extends State<AddPetScreen> {
                           CircleAvatar(
                             radius: 52,
                             backgroundColor: AppColors.primaryLight,
-                            backgroundImage: _profileImage != null ? FileImage(_profileImage!) : null,
-                            child: _profileImage == null
-                                ? Text(_type == 'cat' ? '🐱' : '🐶', style: const TextStyle(fontSize: 40))
+                            backgroundImage: _newProfileImage != null
+                                ? FileImage(_newProfileImage!)
+                                    as ImageProvider
+                                : (widget.pet.profileImageUrl != null
+                                    ? NetworkImage(
+                                        widget.pet.profileImageUrl!)
+                                    : null),
+                            child: (_newProfileImage == null &&
+                                    widget.pet.profileImageUrl == null)
+                                ? Text(
+                                    _type == 'cat' ? '🐱' : '🐶',
+                                    style: const TextStyle(fontSize: 40),
+                                  )
                                 : null,
                           ),
                           Positioned(
@@ -172,24 +165,29 @@ class _AddPetScreenState extends State<AddPetScreen> {
                                 color: AppColors.primary,
                                 shape: BoxShape.circle,
                               ),
-                              child: const Icon(Icons.camera_alt, size: 16, color: Colors.white),
+                              child: const Icon(Icons.camera_alt,
+                                  size: 16, color: Colors.white),
                             ),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      _profileImage == null ? '아이의 프로필을 선택해주세요 🐾' : '사진을 바꾸려면 탭해봐요',
-                      style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    const Text(
+                      '탭해서 사진 바꾸기',
+                      style: TextStyle(
+                          fontSize: 12, color: AppColors.textSecondary),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 28),
 
-              // 종류 선택
-              const Text('종류', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+              // 종류
+              const Text('종류',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary)),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -211,7 +209,10 @@ class _AddPetScreenState extends State<AddPetScreen> {
               const SizedBox(height: 20),
 
               // 이름
-              const Text('이름 *', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+              const Text('이름 *',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary)),
               const SizedBox(height: 8),
               TextField(
                 controller: _nameController,
@@ -220,7 +221,10 @@ class _AddPetScreenState extends State<AddPetScreen> {
               const SizedBox(height: 20),
 
               // 성별
-              const Text('성별', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+              const Text('성별',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary)),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -252,12 +256,16 @@ class _AddPetScreenState extends State<AddPetScreen> {
               const SizedBox(height: 20),
 
               // 생일
-              const Text('생일', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+              const Text('생일',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary)),
               const SizedBox(height: 8),
               GestureDetector(
                 onTap: _pickBirthday,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 14),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
@@ -265,14 +273,17 @@ class _AddPetScreenState extends State<AddPetScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.cake_outlined, color: AppColors.primary, size: 20),
+                      const Icon(Icons.cake_outlined,
+                          color: AppColors.primary, size: 20),
                       const SizedBox(width: 10),
                       Text(
                         _birthday == null
                             ? '생일을 선택해주세요'
                             : '${_birthday!.year}년 ${_birthday!.month}월 ${_birthday!.day}일',
                         style: TextStyle(
-                          color: _birthday == null ? AppColors.textHint : AppColors.textPrimary,
+                          color: _birthday == null
+                              ? AppColors.textHint
+                              : AppColors.textPrimary,
                           fontSize: 15,
                         ),
                       ),
@@ -283,7 +294,10 @@ class _AddPetScreenState extends State<AddPetScreen> {
               const SizedBox(height: 20),
 
               // 품종
-              const Text('품종', style: TextStyle(fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+              const Text('품종',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary)),
               const SizedBox(height: 8),
               TextField(
                 controller: _breedController,
@@ -298,8 +312,12 @@ class _AddPetScreenState extends State<AddPetScreen> {
                 child: ElevatedButton(
                   onPressed: _loading ? null : _submit,
                   child: _loading
-                      ? const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                      : const Text('등록 완료', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      ? const CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2)
+                      : const Text('저장',
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold)),
                 ),
               ),
               const SizedBox(height: 20),
@@ -311,15 +329,23 @@ class _AddPetScreenState extends State<AddPetScreen> {
   }
 
   InputDecoration _inputDecoration(String hint) => InputDecoration(
-    hintText: hint,
-    hintStyle: const TextStyle(color: AppColors.textHint),
-    filled: true,
-    fillColor: Colors.white,
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primaryLight)),
-    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primaryLight)),
-    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 2)),
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-  );
+        hintText: hint,
+        hintStyle: const TextStyle(color: AppColors.textHint),
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.primaryLight)),
+        enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: AppColors.primaryLight)),
+        focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide:
+                const BorderSide(color: AppColors.primary, width: 2)),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      );
 }
 
 class _TypeButton extends StatelessWidget {
@@ -328,7 +354,11 @@ class _TypeButton extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const _TypeButton({required this.label, required this.isCat, required this.selected, required this.onTap});
+  const _TypeButton(
+      {required this.label,
+      required this.isCat,
+      required this.selected,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -342,7 +372,8 @@ class _TypeButton extends StatelessWidget {
             color: selected ? AppColors.primaryLight : Colors.white,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: selected ? AppColors.primary : AppColors.primaryLight,
+              color:
+                  selected ? AppColors.primary : AppColors.primaryLight,
               width: selected ? 2 : 1,
             ),
           ),
@@ -351,7 +382,9 @@ class _TypeButton extends StatelessWidget {
               Opacity(
                 opacity: selected ? 1.0 : 0.4,
                 child: Image.asset(
-                  isCat ? 'assets/images/포포발자국.png' : 'assets/images/토토발자국.png',
+                  isCat
+                      ? 'assets/images/포포발자국.png'
+                      : 'assets/images/토토발자국.png',
                   height: 60,
                 ),
               ),
@@ -361,7 +394,9 @@ class _TypeButton extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: selected ? AppColors.primary : AppColors.textSecondary,
+                  color: selected
+                      ? AppColors.primary
+                      : AppColors.textSecondary,
                 ),
               ),
             ],
@@ -372,13 +407,15 @@ class _TypeButton extends StatelessWidget {
   }
 }
 
-
 class _ChipButton extends StatelessWidget {
   final String label;
   final bool selected;
   final VoidCallback onTap;
 
-  const _ChipButton({required this.label, required this.selected, required this.onTap});
+  const _ChipButton(
+      {required this.label,
+      required this.selected,
+      required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -386,13 +423,24 @@ class _ChipButton extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
           color: selected ? AppColors.primary : Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: selected ? AppColors.primary : AppColors.primaryLight),
+          border: Border.all(
+              color: selected
+                  ? AppColors.primary
+                  : AppColors.primaryLight),
         ),
-        child: Text(label, style: TextStyle(color: selected ? Colors.white : AppColors.textSecondary, fontWeight: FontWeight.w500)),
+        child: Text(
+          label,
+          style: TextStyle(
+              color: selected
+                  ? Colors.white
+                  : AppColors.textSecondary,
+              fontWeight: FontWeight.w500),
+        ),
       ),
     );
   }

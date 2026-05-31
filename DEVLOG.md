@@ -42,6 +42,20 @@ create policy if not exists "피드에서 펫 이름 조회 허용" on public.pe
 - [ ] 브랜드 제휴
 - [ ] Firebase App Distribution으로 테스트 배포
 
+### 인프라 — 미디어 스토리지 이전 (규모 성장 시)
+- [ ] **Cloudflare R2로 Storage 이전** — Supabase Storage 한계 도달 시
+  - **이전 기준**: Storage 사용량 80GB 초과 또는 월 비용 부담 시점
+  - **이유**: R2는 egress(다운로드) 무료, AWS S3 대비 압도적 유리
+    - S3: 저장 $0.023/GB + 다운로드 $0.09/GB
+    - R2: 저장 $0.015/GB + 다운로드 **$0** (사진/동영상 조회가 많은 앱에 핵심)
+  - **이전 작업 범위** (어렵지 않음):
+    1. R2 버킷 생성 + S3 호환 API 키 발급
+    2. 기존 파일 일괄 복사 스크립트 1회 실행
+    3. `post_service.dart`, `pet_service.dart` 업로드 URL 변경
+    4. DB `image_url`, `photo_url` 컬럼 batch update
+  - **동영상 추가 시 주의**: 처음부터 길이 제한(30초~1분) 필수 — 비용 통제
+  - Supabase DB(PostgreSQL)는 그대로 유지, Storage만 이전
+
 ---
 
 ## 2026-05-30 (오후)
