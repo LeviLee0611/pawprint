@@ -124,9 +124,14 @@ create index if not exists idx_likes_post_id
 
 -- 2. likes_count / comments_count 음수 방지
 --    트리거가 count = 0 일 때도 -1 할 수 있어서 방어 제약 추가
-alter table public.posts
-  add constraint if not exists posts_likes_count_nn check (likes_count >= 0),
-  add constraint if not exists posts_comments_count_nn check (comments_count >= 0);
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'posts_likes_count_nn') then
+    alter table public.posts add constraint posts_likes_count_nn check (likes_count >= 0);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'posts_comments_count_nn') then
+    alter table public.posts add constraint posts_comments_count_nn check (comments_count >= 0);
+  end if;
+end $$;
 
 -- 트리거도 보정: 0 이하로 내려가지 않도록
 create or replace function update_likes_count()
