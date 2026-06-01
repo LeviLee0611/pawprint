@@ -134,6 +134,58 @@ class RecordService {
     return (data as List).map((e) => Record.fromJson(e)).toList();
   }
 
+  Future<void> updateRecord({
+    required String id,
+    String? notes,
+    double? value,
+    File? newPhoto,
+    String? oldPhotoUrl,
+  }) async {
+    final userId = _supabase.auth.currentUser!.id;
+    String? newPhotoUrl;
+    String? newStoragePath;
+
+    if (newPhoto != null) {
+      final ext = newPhoto.path.split('.').last.toLowerCase();
+      if (!_allowedExtensions.contains(ext)) {
+        throw Exception('jpg, png 파일만 업로드할 수 있어요');
+      }
+      final size = await newPhoto.length();
+      if (size > _maxFileSizeBytes) {
+        throw Exception('파일 크기는 10MB 이하여야 해요');
+      }
+      newStoragePath = '$userId/${DateTime.now().millisecondsSinceEpoch}.$ext';
+      await _supabase.storage.from(_bucket).upload(newStoragePath, newPhoto);
+      newPhotoUrl =
+          _supabase.storage.from(_bucket).getPublicUrl(newStoragePath);
+
+      // 기존 사진 삭제
+      if (oldPhotoUrl != null) {
+        final path = _storagePath(oldPhotoUrl);
+        if (path != null) {
+          try {
+            await _supabase.storage.from(_bucket).remove([path]);
+          } catch (_) {}
+        }
+      }
+    }
+
+    try {
+      await _supabase.from('records').update({
+        'notes': notes,
+        'value': value,
+        if (newPhotoUrl != null) 'photo_url': newPhotoUrl,
+      }).eq('id', id);
+    } catch (e) {
+      if (newStoragePath != null) {
+        try {
+          await _supabase.storage.from(_bucket).remove([newStoragePath]);
+        } catch (_) {}
+      }
+      rethrow;
+    }
+  }
+
   Future<void> deleteRecord(String id, {String? photoUrl}) async {
     if (photoUrl != null) {
       final path = _storagePath(photoUrl);

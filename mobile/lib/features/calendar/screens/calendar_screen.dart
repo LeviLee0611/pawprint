@@ -4,6 +4,7 @@ import 'package:table_calendar/table_calendar.dart';
 import '../models/record_model.dart';
 import '../services/record_service.dart';
 import '../screens/add_record_screen.dart';
+import '../screens/record_detail_screen.dart';
 import '../screens/photo_gallery_screen.dart';
 import '../screens/photo_viewer_screen.dart';
 import '../widgets/record_bottom_sheet.dart';
@@ -475,17 +476,35 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ],
         ),
         const SizedBox(height: 4),
-        ...records.map((r) => _RecordTile(
-              record: r,
-              pet: showPetBadge ? petMap[r.petId] : null,
-              onDelete: () async {
-                await RecordService()
-                    .deleteRecord(r.id, photoUrl: r.photoUrl);
-                if (mounted) {
-                  await _loadRecords(_focusedDay.year, _focusedDay.month);
-                }
-              },
-            )),
+        ...records.map((r) {
+          final pet = petMap[r.petId] ?? _activePet;
+          return _RecordTile(
+            record: r,
+            pet: showPetBadge ? petMap[r.petId] : null,
+            onTap: pet == null
+                ? null
+                : () async {
+                    final updated = await Navigator.push<bool>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) =>
+                            RecordDetailScreen(record: r, pet: pet),
+                      ),
+                    );
+                    if (updated == true && mounted) {
+                      await _loadRecords(
+                          _focusedDay.year, _focusedDay.month);
+                    }
+                  },
+            onDelete: () async {
+              await RecordService()
+                  .deleteRecord(r.id, photoUrl: r.photoUrl);
+              if (mounted) {
+                await _loadRecords(_focusedDay.year, _focusedDay.month);
+              }
+            },
+          );
+        }),
       ],
     );
   }
@@ -545,10 +564,11 @@ class _PetFilterChip extends StatelessWidget {
 
 class _RecordTile extends StatelessWidget {
   final Record record;
-  final Pet? pet; // 전체 모드일 때만 non-null
+  final Pet? pet;
   final VoidCallback? onDelete;
+  final VoidCallback? onTap;
 
-  const _RecordTile({required this.record, this.pet, this.onDelete});
+  const _RecordTile({required this.record, this.pet, this.onDelete, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -566,7 +586,10 @@ class _RecordTile extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(record.emoji, style: const TextStyle(fontSize: 22)),
@@ -649,6 +672,7 @@ class _RecordTile extends StatelessWidget {
               ),
             ),
         ],
+      ),
       ),
     );
   }
