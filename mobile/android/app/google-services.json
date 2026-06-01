@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "363899757652",
+    "project_id": "pawprint-9bc0f",
+    "storage_bucket": "pawprint-9bc0f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:363899757652:android:d6268f2e889f94ee2679c1",
+        "android_client_info": {
+          "package_name": "com.pawprint.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBRzgYfHMBjF3ML_YSDLAs4Rlq45mdMb9k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
