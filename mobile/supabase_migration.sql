@@ -47,15 +47,17 @@ create table if not exists public.reports (
   target_id uuid not null,
   reason text not null,
   created_at timestamptz default now(),
-  unique (reporter_id, target_id)
+  unique (reporter_id, target_type, target_id)
 );
 
 alter table public.reports enable row level security;
 
-create policy if not exists "신고 삽입" on public.reports
+drop policy if exists "신고 삽입" on public.reports;
+create policy "신고 삽입" on public.reports
   for insert with check (auth.uid() = reporter_id);
 
-create policy if not exists "본인 신고 조회" on public.reports
+drop policy if exists "본인 신고 조회" on public.reports;
+create policy "본인 신고 조회" on public.reports
   for select using (auth.uid() = reporter_id);
 
 -- ================================================
