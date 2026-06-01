@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'core/services/notification_service.dart';
 import 'features/calendar/screens/calendar_screen.dart';
 import 'features/feed/screens/feed_screen.dart';
-import 'features/pet/screens/pet_screen.dart';
+import 'features/profile/screens/my_profile_screen.dart';
 import 'features/profile/screens/profile_screen.dart';
 
 class App extends StatefulWidget {
@@ -18,7 +18,7 @@ class _AppState extends State<App> {
   final List<Widget> _screens = const [
     CalendarScreen(),
     FeedScreen(),
-    PetScreen(),
+    MyProfileScreen(),
     ProfileScreen(),
   ];
 
@@ -59,9 +59,9 @@ class _AppState extends State<App> {
             label: '피드',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.pets_outlined),
-            activeIcon: Icon(Icons.pets),
-            label: '내 펫',
+            icon: Icon(Icons.grid_on_outlined),
+            activeIcon: Icon(Icons.grid_on),
+            label: '내 피드',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),

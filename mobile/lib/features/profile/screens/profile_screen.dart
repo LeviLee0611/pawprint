@@ -231,6 +231,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
 
+          // ── 펫 관리 ──────────────────────────────────
+          _sectionLabel('펫 관리'),
+          _navTile(
+            icon: Icons.pets_outlined,
+            label: '내 펫 관리',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const PetScreen()),
+            ),
+          ),
+
           // ── 설정 ──────────────────────────────────
           _sectionLabel('설정'),
           _switchTile(

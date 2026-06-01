@@ -34,6 +34,51 @@ class PostService {
         .toList();
   }
 
+  Future<List<Post>> getPostsByUser(String userId) async {
+    final myId = _supabase.auth.currentUser?.id;
+
+    final results = await Future.wait([
+      _supabase
+          .from('posts')
+          .select(_postSelect)
+          .eq('owner_id', userId)
+          .order('created_at', ascending: false),
+      if (myId != null)
+        _supabase.from('likes').select('post_id').eq('owner_id', myId),
+    ]);
+
+    final data = results[0] as List;
+    final myLikes = myId != null
+        ? (results[1] as List).map((e) => e['post_id'] as String).toSet()
+        : <String>{};
+
+    return data
+        .map((e) => Post.fromJson(e, isLikedByMe: myLikes.contains(e['id'])))
+        .toList();
+  }
+
+  Future<List<Post>> getMyPosts() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    final results = await Future.wait([
+      _supabase
+          .from('posts')
+          .select(_postSelect)
+          .eq('owner_id', userId)
+          .order('created_at', ascending: false),
+      _supabase.from('likes').select('post_id').eq('owner_id', userId),
+    ]);
+
+    final data = results[0] as List;
+    final myLikes =
+        (results[1] as List).map((e) => e['post_id'] as String).toSet();
+
+    return data
+        .map((e) => Post.fromJson(e, isLikedByMe: myLikes.contains(e['id'])))
+        .toList();
+  }
+
   Future<Post> addPost({
     required String? petId,
     required String content,

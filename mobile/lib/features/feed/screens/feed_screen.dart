@@ -6,6 +6,8 @@ import '../../pet/models/pet_model.dart';
 import '../../pet/services/pet_service.dart';
 import '../models/post_model.dart';
 import '../services/post_service.dart';
+import '../../../features/profile/screens/user_profile_screen.dart';
+import '../services/follow_service.dart';
 import 'add_post_screen.dart';
 import 'post_detail_screen.dart';
 import '../widgets/report_bottom_sheet.dart';
@@ -17,12 +19,17 @@ class FeedScreen extends StatefulWidget {
   State<FeedScreen> createState() => _FeedScreenState();
 }
 
+enum _FeedFilter { all, following, cat, dog }
+
 class _FeedScreenState extends State<FeedScreen> {
   final _postService = PostService();
   final _petService = PetService();
+  final _followService = FollowService();
 
   List<Post> _posts = [];
   List<Pet> _myPets = [];
+  Set<String> _followingIds = {};
+  _FeedFilter _filter = _FeedFilter.all;
   bool _loading = true;
 
   @override
@@ -33,41 +40,63 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Future<void> _loadAll() async {
     setState(() => _loading = true);
-    final results = await Future.wait([
-      _postService.getPosts(),
-      _petService.getMyPets(),
-    ]);
-    if (!mounted) return;
-    final rawPosts = results[0] as List<Post>;
-    final pets = results[1] as List<Pet>;
-    final petMap = {for (final p in pets) p.id: p};
+    try {
+      final results = await Future.wait([
+        _postService.getPosts(),
+        _petService.getMyPets(),
+        _followService.getFollowingIds(),
+      ]);
+      if (!mounted) return;
+      final rawPosts = results[0] as List<Post>;
+      final pets = results[1] as List<Pet>;
+      final followingIds = results[2] as List<String>;
+      final petMap = {for (final p in pets) p.id: p};
 
-    // 현재 유저 정보 (auth 메타데이터)
-    final me = Supabase.instance.client.auth.currentUser;
-    final myName = (me?.userMetadata?['full_name']
-            ?? me?.userMetadata?['name']
-            ?? '나') as String;
-    final myAvatar = me?.userMetadata?['avatar_url'] as String?;
+      final me = Supabase.instance.client.auth.currentUser;
+      final myName = (me?.userMetadata?['full_name']
+              ?? me?.userMetadata?['name']
+              ?? '나') as String;
+      final myAvatar = me?.userMetadata?['avatar_url'] as String?;
 
-    final enriched = rawPosts.map((post) {
-      Post p = post;
-      // 작성자가 나인 경우 내 이름/아바타 주입
-      if (post.ownerId == me?.id) {
-        p = p.copyWith(ownerName: myName, ownerAvatarUrl: myAvatar);
+      final enriched = rawPosts.map((post) {
+        Post p = post;
+        if (post.ownerId == me?.id) {
+          p = p.copyWith(ownerName: myName, ownerAvatarUrl: myAvatar);
+        }
+        if (p.petId != null && petMap.containsKey(p.petId)) {
+          final pet = petMap[p.petId!]!;
+          p = p.copyWith(petName: pet.name, petType: pet.type);
+        }
+        return p;
+      }).toList();
+
+      setState(() {
+        _posts = enriched;
+        _myPets = pets;
+        _followingIds = followingIds.toSet();
+      });
+    } catch (_) {
+      // 로드 실패해도 스피너 해제
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  List<Post> get _filteredPosts {
+    final myId = Supabase.instance.client.auth.currentUser?.id;
+    return _posts.where((post) {
+      switch (_filter) {
+        case _FeedFilter.all:
+          return true;
+        case _FeedFilter.following:
+          return post.ownerId == myId ||
+              _followingIds.contains(post.ownerId);
+        case _FeedFilter.cat:
+          return post.petType == 'cat';
+        case _FeedFilter.dog:
+          return post.petType == 'dog';
       }
-      // 내 펫에 한해 pet 정보 로컬 매칭
-      if (p.petId != null && petMap.containsKey(p.petId)) {
-        final pet = petMap[p.petId!]!;
-        p = p.copyWith(petName: pet.name, petType: pet.type);
-      }
-      return p;
     }).toList();
-
-    setState(() {
-      _posts = enriched;
-      _myPets = pets;
-      _loading = false;
-    });
   }
 
   Future<void> _toggleLike(int index) async {
@@ -91,9 +120,9 @@ class _FeedScreenState extends State<FeedScreen> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('🐾 포포와 토토'),
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: Color(0xFFEDE8E3)),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(49),
+          child: _buildFilterChips(),
         ),
       ),
       body: _loading
@@ -102,7 +131,9 @@ class _FeedScreenState extends State<FeedScreen> {
           : RefreshIndicator(
               onRefresh: _loadAll,
               color: AppColors.primary,
-              child: _posts.isEmpty ? _buildEmptyState() : _buildFeed(),
+              child: _filteredPosts.isEmpty
+                  ? _buildEmptyState()
+                  : _buildFeed(),
             ),
       floatingActionButton: FloatingActionButton(
         onPressed: _myPets.isEmpty
@@ -124,25 +155,89 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
+  Widget _buildFilterChips() {
+    const items = [
+      (_FeedFilter.all, '전체'),
+      (_FeedFilter.following, '팔로잉'),
+      (_FeedFilter.cat, '고양이 🐱'),
+      (_FeedFilter.dog, '강아지 🐶'),
+    ];
+    return Container(
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: Color(0xFFEDE8E3))),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          children: items.map((item) {
+            final selected = _filter == item.$1;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(item.$2),
+                selected: selected,
+                onSelected: (_) =>
+                    setState(() => _filter = item.$1),
+                selectedColor: AppColors.primary,
+                backgroundColor: AppColors.surface,
+                labelStyle: TextStyle(
+                  color: selected
+                      ? Colors.white
+                      : AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+                side: BorderSide(
+                  color: selected
+                      ? AppColors.primary
+                      : AppColors.brownLight,
+                ),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20)),
+                showCheckmark: false,
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
   Widget _buildFeed() {
+    final posts = _filteredPosts;
     return ListView.separated(
       padding: const EdgeInsets.only(bottom: 100),
-      itemCount: _posts.length,
+      itemCount: posts.length,
       separatorBuilder: (_, _) =>
           const Divider(height: 1, color: Color(0xFFEDE8E3)),
-      itemBuilder: (context, index) => _ThreadPost(
-        post: _posts[index],
-        onLike: () => _toggleLike(index),
-        onTap: () async {
-          await Navigator.push(
+      itemBuilder: (context, index) {
+        final post = posts[index];
+        final rawIndex = _posts.indexOf(post);
+        return _ThreadPost(
+          post: post,
+          onLike: () => _toggleLike(rawIndex),
+          onTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => PostDetailScreen(post: post),
+              ),
+            );
+            await _loadAll();
+          },
+          onProfileTap: () => Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => PostDetailScreen(post: _posts[index]),
+              builder: (_) => UserProfileScreen(
+                userId: post.ownerId,
+                initialName: post.ownerName,
+                initialAvatarUrl: post.ownerAvatarUrl,
+              ),
             ),
-          );
-          await _loadAll();
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -180,9 +275,14 @@ class _ThreadPost extends StatelessWidget {
   final Post post;
   final VoidCallback onLike;
   final VoidCallback onTap;
+  final VoidCallback onProfileTap;
 
-  const _ThreadPost(
-      {required this.post, required this.onLike, required this.onTap});
+  const _ThreadPost({
+    required this.post,
+    required this.onLike,
+    required this.onTap,
+    required this.onProfileTap,
+  });
 
   String _timeAgo(DateTime dt) {
     final diff = DateTime.now().difference(dt);
@@ -211,7 +311,10 @@ class _ThreadPost extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 왼쪽: 아바타
-            _Avatar(url: post.ownerAvatarUrl, size: 40),
+            GestureDetector(
+              onTap: onProfileTap,
+              child: _Avatar(url: post.ownerAvatarUrl, size: 40),
+            ),
             const SizedBox(width: 12),
 
             // 오른쪽: 내용 전체
@@ -222,12 +325,15 @@ class _ThreadPost extends StatelessWidget {
                   // 이름 + 펫 + 시간
                   Row(
                     children: [
-                      Text(
-                        post.ownerName ?? '사용자',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                            color: AppColors.textPrimary),
+                      GestureDetector(
+                        onTap: onProfileTap,
+                        child: Text(
+                          post.ownerName ?? '사용자',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14,
+                              color: AppColors.textPrimary),
+                        ),
                       ),
                       if (petLabel != null) ...[
                         const SizedBox(width: 6),

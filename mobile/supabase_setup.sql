@@ -245,3 +245,27 @@ create policy "본인 기록 사진만 삭제" on storage.objects
     auth.uid()::text = (storage.foldername(name))[1]
     and bucket_id = 'record-photos'
   );
+
+-- ── 2026-06-01: follows (팔로우) ──────────────────────────────
+create table if not exists public.follows (
+  id uuid default gen_random_uuid() primary key,
+  follower_id uuid references public.profiles(id) on delete cascade not null,
+  following_id uuid references public.profiles(id) on delete cascade not null,
+  created_at timestamptz default now(),
+  unique (follower_id, following_id),
+  check (follower_id <> following_id)
+);
+
+alter table public.follows enable row level security;
+
+create policy "팔로우 조회 허용" on public.follows
+  for select using (true);
+
+create policy "본인 팔로우만 생성" on public.follows
+  for insert with check (auth.uid() = follower_id);
+
+create policy "본인 팔로우만 삭제" on public.follows
+  for delete using (auth.uid() = follower_id);
+
+create index if not exists follows_follower_idx on public.follows (follower_id);
+create index if not exists follows_following_idx on public.follows (following_id);

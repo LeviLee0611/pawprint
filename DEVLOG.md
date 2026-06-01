@@ -1,5 +1,18 @@
 # 포포와 토토 개발 기록
 
+## 2026-06-01
+
+### 팔로우 / 내 피드 / 피드 필터
+- `follows` 테이블 생성 + RLS + 인덱스 — Supabase SQL Editor에서 실행 완료
+- `FollowService` 신규: toggleFollow / isFollowing / getFollowCounts(count 쿼리) / getFollowingIds
+- `UserProfileScreen` 신규: 팔로우 버튼 + 팔로워/팔로잉 수 + 게시글 그리드
+- `MyProfileScreen` 신규: 내 게시글 그리드 + 실제 팔로워/팔로잉 수
+- 네브바 변경: `내 펫` → `내 피드` (MyProfileScreen), 프로필 탭 유지
+- `ProfileScreen`에 내 펫 관리 항목 추가
+- 피드 카드 아바타/닉네임 탭 → UserProfileScreen
+- 피드 필터 칩: 전체 / 팔로잉 / 고양이 🐱 / 강아지 🐶
+- Future.wait 전체에 try/catch + finally로 무한 스피너 방지
+
 ## TODO
 
 ### 다음 할 일 (Flutter 모바일)
