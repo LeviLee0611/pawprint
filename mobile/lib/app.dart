@@ -14,38 +14,53 @@ class App extends StatefulWidget {
 
 class _AppState extends State<App> {
   int _currentIndex = 0;
-
-  final List<Widget> _screens = const [
-    CalendarScreen(),
-    FeedScreen(),
-    MyProfileScreen(),
-    ProfileScreen(),
-  ];
+  late final PageController _pageController;
 
   @override
   void initState() {
     super.initState();
+    _pageController = PageController();
     NotificationService.onNotificationTap = () {
-      if (mounted) setState(() => _currentIndex = 0);
+      if (mounted) _jumpToTab(0);
     };
   }
 
   @override
   void dispose() {
+    _pageController.dispose();
     NotificationService.onNotificationTap = null;
     super.dispose();
+  }
+
+  void _jumpToTab(int index) {
+    if (!_pageController.hasClients) {
+      setState(() => _currentIndex = index);
+      return;
+    }
+    setState(() => _currentIndex = index);
+    _pageController.animateToPage(
+      index,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: (index) => setState(() => _currentIndex = index),
+        children: const [
+          CalendarScreen(),
+          FeedScreen(),
+          MyProfileScreen(),
+          ProfileScreen(),
+        ],
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+        onTap: _jumpToTab,
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(

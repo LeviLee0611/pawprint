@@ -8,6 +8,7 @@ import '../../feed/services/post_service.dart';
 import '../../pet/models/pet_model.dart';
 import '../../pet/services/pet_service.dart';
 import '../widgets/profile_banner.dart';
+import 'follow_list_screen.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final String userId;
@@ -225,8 +226,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _StatColumn(value: '${_posts.length}', label: '게시물'),
-          _StatColumn(value: '$_followers', label: '팔로워'),
-          _StatColumn(value: '$_following', label: '팔로잉'),
+          GestureDetector(
+            onTap: () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => FollowListScreen(userId: widget.userId, showFollowers: true),
+            )),
+            child: _StatColumn(value: '$_followers', label: '팔로워'),
+          ),
+          GestureDetector(
+            onTap: () => Navigator.push(context, MaterialPageRoute(
+              builder: (_) => FollowListScreen(userId: widget.userId, showFollowers: false),
+            )),
+            child: _StatColumn(value: '$_following', label: '팔로잉'),
+          ),
         ],
       ),
       actionButton: followBtn,

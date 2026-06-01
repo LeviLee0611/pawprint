@@ -13,21 +13,39 @@ class PostService {
 
   static const _pageSize = 20;
 
-  Future<List<Post>> getPosts({int offset = 0}) async {
+  Future<List<Post>> getPosts({
+    int offset = 0,
+    String? petType,
+    List<String>? followingIds,
+  }) async {
     final userId = _supabase.auth.currentUser?.id;
 
-    final data = await _supabase
-        .from('posts')
-        .select(_postSelect)
+    var query = _supabase.from('posts').select(_postSelect);
+
+    // 팔로잉 필터: 내 글 + 팔로우한 사람 글
+    if (followingIds != null) {
+      final ids = [...followingIds, if (userId != null) userId];
+      query = query.inFilter('owner_id', ids);
+    }
+
+    // 펫 타입 필터: pets 테이블 join 기준
+    if (petType != null) {
+      query = query.eq('pets.type', petType);
+    }
+
+    final data = await query
         .order('created_at', ascending: false)
         .range(offset, offset + _pageSize - 1);
 
+    // 로드된 게시글 ID에 한해서만 좋아요 조회 (전체 X)
     Set<String> myLikes = {};
-    if (userId != null) {
+    if (userId != null && (data as List).isNotEmpty) {
+      final postIds = data.map((e) => e['id'] as String).toList();
       final likesData = await _supabase
           .from('likes')
           .select('post_id')
-          .eq('owner_id', userId);
+          .eq('owner_id', userId)
+          .inFilter('post_id', postIds);
       myLikes =
           (likesData as List).map((e) => e['post_id'] as String).toSet();
     }

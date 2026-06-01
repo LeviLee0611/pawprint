@@ -172,25 +172,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final email = user?.email ?? '';
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('프로필'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            onPressed: () async {
-              final updated = await Navigator.push<bool>(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => EditProfileScreen(
-                    currentName: name,
-                    currentAvatarUrl: avatarUrl,
-                  ),
-                ),
-              );
-              if (updated == true && mounted) _loadData();
-            },
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFFFF0DC), Color(0xFFFFFAF5)],
+            ),
           ),
-        ],
+          child: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            title: const Text('프로필'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.edit_outlined),
+                onPressed: () async {
+                  final updated = await Navigator.push<bool>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => EditProfileScreen(
+                        currentName: name,
+                        currentAvatarUrl: avatarUrl,
+                      ),
+                    ),
+                  );
+                  if (updated == true && mounted) _loadData();
+                },
+              ),
+            ],
+          ),
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.only(bottom: 40),
@@ -296,11 +310,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFF0DC), Color(0xFFFFFAF5)],
+        ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: AppColors.brown.withValues(alpha: 0.08),
+            color: AppColors.primary.withValues(alpha: 0.1),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),

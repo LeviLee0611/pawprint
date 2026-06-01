@@ -181,29 +181,43 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_activePet != null
-            ? '${_activePet!.emoji} ${_activePet!.name}'
-            : '댕냥스토리'),
-        actions: [
-          if (_pets.isNotEmpty) ...[
-            IconButton(
-              icon: const Icon(Icons.photo_library_outlined),
-              color: AppColors.brown,
-              tooltip: '사진 모아보기',
-              onPressed: () => Navigator.push(context,
-                  MaterialPageRoute(
-                      builder: (_) => const PhotoGalleryScreen())),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFFFF0DC), Color(0xFFFFFAF5)],
             ),
-            IconButton(
-              icon: const Icon(Icons.add_circle_outline),
-              color: AppColors.primary,
-              tooltip: '기록 추가',
-              onPressed: () =>
-                  _showRecordSheet(_selectedDay ?? DateTime.now()),
-            ),
-          ],
-        ],
+          ),
+          child: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            title: Text(_activePet != null
+                ? '${_activePet!.emoji} ${_activePet!.name}'
+                : '댕냥스토리'),
+            actions: [
+              if (_pets.isNotEmpty) ...[
+                IconButton(
+                  icon: const Icon(Icons.photo_library_outlined),
+                  color: AppColors.brown,
+                  tooltip: '사진 모아보기',
+                  onPressed: () => Navigator.push(context,
+                      MaterialPageRoute(
+                          builder: (_) => const PhotoGalleryScreen())),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add_circle_outline),
+                  color: AppColors.primary,
+                  tooltip: '기록 추가',
+                  onPressed: () =>
+                      _showRecordSheet(_selectedDay ?? DateTime.now()),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
       body: _pets.isEmpty ? _buildNoPetState() : _buildCalendar(),
     );

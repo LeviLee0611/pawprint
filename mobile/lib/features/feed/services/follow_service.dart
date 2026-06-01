@@ -37,6 +37,38 @@ class FollowService {
     return result != null;
   }
 
+  /// 팔로워 목록 (나를 팔로우하는 유저)
+  Future<List<Map<String, dynamic>>> getFollowers(String userId) async {
+    final data = await _supabase
+        .from('follows')
+        .select('follower_id, profiles:follower_id(display_name, avatar_url)')
+        .eq('following_id', userId);
+    return (data as List).map((e) {
+      final profile = e['profiles'] as Map<String, dynamic>?;
+      return {
+        'id': e['follower_id'] as String,
+        'display_name': profile?['display_name'] as String? ?? '사용자',
+        'avatar_url': profile?['avatar_url'] as String?,
+      };
+    }).toList();
+  }
+
+  /// 팔로잉 목록 (내가 팔로우하는 유저)
+  Future<List<Map<String, dynamic>>> getFollowing(String userId) async {
+    final data = await _supabase
+        .from('follows')
+        .select('following_id, profiles:following_id(display_name, avatar_url)')
+        .eq('follower_id', userId);
+    return (data as List).map((e) {
+      final profile = e['profiles'] as Map<String, dynamic>?;
+      return {
+        'id': e['following_id'] as String,
+        'display_name': profile?['display_name'] as String? ?? '사용자',
+        'avatar_url': profile?['avatar_url'] as String?,
+      };
+    }).toList();
+  }
+
   Future<List<String>> getFollowingIds() async {
     final myId = _supabase.auth.currentUser?.id;
     if (myId == null) return [];

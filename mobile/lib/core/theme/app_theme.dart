@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class AppColors {
   static const primary = Color(0xFFFF9A3C);
@@ -39,6 +40,11 @@ class AppTheme {
       foregroundColor: AppColors.textPrimary,
       elevation: 0,
       centerTitle: false,
+      systemOverlayStyle: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+      ),
       titleTextStyle: TextStyle(
         color: AppColors.textPrimary,
         fontSize: 20,

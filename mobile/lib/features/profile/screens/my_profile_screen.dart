@@ -6,6 +6,7 @@ import '../../feed/screens/post_detail_screen.dart';
 import '../../feed/services/follow_service.dart';
 import '../../feed/services/post_service.dart';
 import '../widgets/profile_banner.dart';
+import 'follow_list_screen.dart';
 
 class MyProfileScreen extends StatefulWidget {
   const MyProfileScreen({super.key});
@@ -62,7 +63,9 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
             '이름 없음') as String;
 
     return Scaffold(
+      backgroundColor: const Color(0xFFFFFAF5),
       appBar: AppBar(
+        backgroundColor: const Color(0xFFFFF0DC),
         title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: false,
       ),
@@ -83,17 +86,21 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                       ? SliverFillRemaining(
                           child: _buildEmpty(),
                         )
-                      : SliverGrid(
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            crossAxisSpacing: 1.5,
-                            mainAxisSpacing: 1.5,
-                          ),
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) =>
-                                _buildGridItem(_posts[index]),
-                            childCount: _posts.length,
+                      : SliverPadding(
+                          padding: const EdgeInsets.all(10),
+                          sliver: SliverGrid(
+                            gridDelegate:
+                                const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              crossAxisSpacing: 8,
+                              mainAxisSpacing: 8,
+                              childAspectRatio: 1.0,
+                            ),
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) =>
+                                  _buildGridItem(_posts[index]),
+                              childCount: _posts.length,
+                            ),
                           ),
                         ),
                 ],
@@ -113,8 +120,24 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _StatColumn(value: '${_posts.length}', label: '게시물'),
-              _StatColumn(value: '$_followers', label: '팔로워'),
-              _StatColumn(value: '$_following', label: '팔로잉'),
+              GestureDetector(
+                onTap: () {
+                  final myId = Supabase.instance.client.auth.currentUser?.id ?? '';
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => FollowListScreen(userId: myId, showFollowers: true),
+                  ));
+                },
+                child: _StatColumn(value: '$_followers', label: '팔로워'),
+              ),
+              GestureDetector(
+                onTap: () {
+                  final myId = Supabase.instance.client.auth.currentUser?.id ?? '';
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => FollowListScreen(userId: myId, showFollowers: false),
+                  ));
+                },
+                child: _StatColumn(value: '$_following', label: '팔로잉'),
+              ),
             ],
           ),
         ),
@@ -128,28 +151,75 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
         context,
         MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
       ),
-      child: post.imageUrl != null
-          ? Image.network(
-              post.imageUrl!,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => _buildTextTile(post),
-            )
-          : _buildTextTile(post),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: post.imageUrl != null
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(
+                    post.imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => _buildTextTile(post),
+                  ),
+                  // 하단 그라데이션 + 텍스트 오버레이
+                  if (post.content.isNotEmpty)
+                    Positioned(
+                      left: 0, right: 0, bottom: 0,
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(10, 20, 10, 10),
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.transparent, Colors.black54],
+                          ),
+                        ),
+                        child: Text(
+                          post.content,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 11, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                ],
+              )
+            : _buildTextTile(post),
+      ),
     );
   }
 
   Widget _buildTextTile(Post post) {
     return Container(
-      color: AppColors.primaryLight,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFE0B2), Color(0xFFFFF3E8)],
+        ),
+        borderRadius: BorderRadius.circular(14),
+      ),
       alignment: Alignment.center,
-      padding: const EdgeInsets.all(8),
-      child: Text(
-        post.content,
-        maxLines: 3,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-            fontSize: 11, color: AppColors.textSecondary),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(post.petType == 'dog' ? '🐶' : '🐱',
+              style: const TextStyle(fontSize: 28)),
+          const SizedBox(height: 8),
+          Text(
+            post.content,
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textPrimary,
+                height: 1.4),
+          ),
+        ],
       ),
     );
   }

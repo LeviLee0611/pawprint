@@ -63,14 +63,7 @@ class _FeedScreenState extends State<FeedScreen> {
   Future<void> _loadMore() async {
     setState(() => _loadingMore = true);
     try {
-      final more = await _postService.getPosts(offset: _posts.length);
-      if (!mounted) return;
-      setState(() {
-        _posts.addAll(_enrichPosts(more));
-        _hasMore = more.length >= 20;
-      });
-    } catch (e) {
-      debugPrint('loadMore error: $e');
+      await _loadPosts();
     } finally {
       if (mounted) setState(() => _loadingMore = false);
     }
@@ -102,21 +95,17 @@ class _FeedScreenState extends State<FeedScreen> {
     setState(() { _loading = true; _hasError = false; _hasMore = true; });
     try {
       final results = await Future.wait([
-        _postService.getPosts(offset: 0),
         _petService.getMyPets(),
         _followService.getFollowingIds(),
       ]);
       if (!mounted) return;
-      final rawPosts = results[0] as List<Post>;
-      final pets = results[1] as List<Pet>;
-      final followingIds = results[2] as List<String>;
+      final pets = results[0] as List<Pet>;
+      final followingIds = results[1] as List<String>;
       _cachedPets = pets;
-      setState(() {
-        _posts = _enrichPosts(rawPosts);
-        _myPets = pets;
-        _followingIds = followingIds.toSet();
-        _hasMore = rawPosts.length >= 20;
-      });
+      _myPets = pets;
+      _followingIds = followingIds.toSet();
+
+      await _loadPosts(reset: true);
     } catch (e) {
       debugPrint('loadAll error: $e');
       if (mounted) setState(() => _hasError = true);
@@ -125,22 +114,36 @@ class _FeedScreenState extends State<FeedScreen> {
     }
   }
 
-  List<Post> get _filteredPosts {
-    final myId = Supabase.instance.client.auth.currentUser?.id;
-    return _posts.where((post) {
-      switch (_filter) {
-        case _FeedFilter.all:
-          return true;
-        case _FeedFilter.following:
-          return post.ownerId == myId ||
-              _followingIds.contains(post.ownerId);
-        case _FeedFilter.cat:
-          return post.petType == 'cat';
-        case _FeedFilter.dog:
-          return post.petType == 'dog';
-      }
-    }).toList();
+  Future<void> _loadPosts({bool reset = false}) async {
+    if (reset) setState(() { _posts = []; _hasMore = true; });
+    try {
+      final rawPosts = await _postService.getPosts(
+        offset: reset ? 0 : _posts.length,
+        petType: _filter == _FeedFilter.cat
+            ? 'cat'
+            : _filter == _FeedFilter.dog
+                ? 'dog'
+                : null,
+        followingIds: _filter == _FeedFilter.following
+            ? _followingIds.toList()
+            : null,
+      );
+      if (!mounted) return;
+      setState(() {
+        if (reset) {
+          _posts = _enrichPosts(rawPosts);
+        } else {
+          _posts.addAll(_enrichPosts(rawPosts));
+        }
+        _hasMore = rawPosts.length >= 20;
+      });
+    } catch (e) {
+      debugPrint('loadPosts error: $e');
+    }
   }
+
+  // 필터 변경 시 서버에서 재조회
+  List<Post> get _filteredPosts => _posts;
 
   Future<void> _toggleLike(int index) async {
     final post = _posts[index];
@@ -166,11 +169,25 @@ class _FeedScreenState extends State<FeedScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('댕냥스토리'),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(49),
-          child: _buildFilterChips(),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight + 49),
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFFFF0DC), Color(0xFFFFFAF5)],
+            ),
+          ),
+          child: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            title: const Text('댕냥스토리'),
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(49),
+              child: _buildFilterChips(),
+            ),
+          ),
         ),
       ),
       body: _loading
@@ -249,8 +266,10 @@ class _FeedScreenState extends State<FeedScreen> {
               child: ChoiceChip(
                 label: Text(item.$2),
                 selected: selected,
-                onSelected: (_) =>
-                    setState(() => _filter = item.$1),
+                onSelected: (_) {
+                  setState(() => _filter = item.$1);
+                  _loadPosts(reset: true);
+                },
                 selectedColor: AppColors.primary,
                 backgroundColor: AppColors.surface,
                 labelStyle: TextStyle(
@@ -329,6 +348,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Widget _buildEmptyState() {
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       children: [
         SizedBox(height: MediaQuery.of(context).size.height * 0.3),
         Column(

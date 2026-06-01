@@ -20,14 +20,12 @@ class ProfileBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final topPadding = MediaQuery.of(context).padding.top + kToolbarHeight + 8;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           width: double.infinity,
-          padding: EdgeInsets.fromLTRB(16, topPadding, 16, 20),
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
