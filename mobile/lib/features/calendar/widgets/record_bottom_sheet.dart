@@ -41,19 +41,11 @@ class RecordBottomSheet extends StatelessWidget {
             const SizedBox(height: 16),
             _RecordOption(
               icon: Icons.photo_camera_rounded,
-              label: '사진 / 동영상',
+              label: '사진 기록',
               description: '오늘의 순간을 남겨요',
               color: AppColors.primary,
               bgColor: AppColors.primaryLight,
-              onTap: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('사진 기록은 곧 추가될 예정이에요 🐾'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              },
+              onTap: () => Navigator.pop(context, 'photo'),
             ),
             _RecordOption(
               icon: Icons.vaccines_rounded,

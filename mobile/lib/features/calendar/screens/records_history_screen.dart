@@ -33,7 +33,7 @@ class _RecordsHistoryScreenState extends State<RecordsHistoryScreen> {
   }
 
   Future<void> _delete(Record r) async {
-    await _recordService.deleteRecord(r.id);
+    await _recordService.deleteRecord(r.id, photoUrl: r.photoUrl);
     if (!mounted) return;
     setState(() => _records.removeWhere((x) => x.id == r.id));
   }

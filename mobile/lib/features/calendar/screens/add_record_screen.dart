@@ -1,6 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../services/record_service.dart';
+import '../services/reminder_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../pet/models/pet_model.dart';
 
@@ -24,9 +27,17 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
   final _notesController = TextEditingController();
   final _weightController = TextEditingController();
   final _service = RecordService();
+  final _reminderService = ReminderService();
   bool _saving = false;
+  File? _photoFile;
+
+  // 예방접종 알림 설정
+  bool _reminderEnabled = false;
+  DateTime? _reminderDate;
 
   bool get _isWeight => widget.type == 'weight';
+  bool get _isPhoto => widget.type == 'photo';
+  bool get _isHealth => widget.type == 'health';
 
   String get _typeLabel {
     switch (widget.type) {
@@ -36,6 +47,8 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
         return '예방접종';
       case 'note':
         return '건강 메모';
+      case 'photo':
+        return '사진 기록';
       default:
         return '기록';
     }
@@ -49,6 +62,8 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
         return '💉';
       case 'note':
         return '📝';
+      case 'photo':
+        return '📷';
       default:
         return '📋';
     }
@@ -61,8 +76,40 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
     super.dispose();
   }
 
+  Future<void> _pickPhoto() async {
+    final picker = ImagePicker();
+    final picked =
+        await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (picked != null) setState(() => _photoFile = File(picked.path));
+  }
+
   Future<void> _save() async {
-    if (_isWeight) {
+    if (_isPhoto) {
+      if (_photoFile == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('사진을 선택해주세요')),
+        );
+        return;
+      }
+      setState(() => _saving = true);
+      try {
+        await _service.addRecord(
+          petId: widget.pet.id,
+          date: widget.date,
+          type: widget.type,
+          notes: _notesController.text.trim().isEmpty
+              ? null
+              : _notesController.text.trim(),
+          photo: _photoFile,
+        );
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('저장 실패: $e')));
+        return;
+      }
+    } else if (_isWeight) {
       final val = double.tryParse(_weightController.text.trim());
       if (val == null || val <= 0) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -84,9 +131,8 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
       } catch (e) {
         if (!mounted) return;
         setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('저장 실패: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('저장 실패: $e')));
         return;
       }
     } else {
@@ -104,12 +150,19 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
           type: widget.type,
           notes: _notesController.text.trim(),
         );
+        // 예방접종 알림 설정
+        if (_isHealth && _reminderEnabled && _reminderDate != null) {
+          await _reminderService.addReminder(
+            petId: widget.pet.id,
+            title: '${widget.pet.name} 예방접종 알림: ${_notesController.text.trim()}',
+            remindAt: _reminderDate!,
+          );
+        }
       } catch (e) {
         if (!mounted) return;
         setState(() => _saving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('저장 실패: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('저장 실패: $e')));
         return;
       }
     }
@@ -160,6 +213,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 헤더
             Container(
               padding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -169,8 +223,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
               ),
               child: Row(
                 children: [
-                  Text(_typeEmoji,
-                      style: const TextStyle(fontSize: 28)),
+                  Text(_typeEmoji, style: const TextStyle(fontSize: 28)),
                   const SizedBox(width: 14),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,25 +236,129 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                             fontSize: 15),
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        formatted,
-                        style: const TextStyle(
-                            fontSize: 13, color: AppColors.textSecondary),
-                      ),
+                      Text(formatted,
+                          style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.textSecondary)),
                     ],
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 28),
-            if (_isWeight) ...[
-              const Text(
-                '몸무게 (kg)',
-                style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                    fontSize: 15),
+
+            if (_isPhoto) ...[
+              // 사진 선택 영역
+              GestureDetector(
+                onTap: _pickPhoto,
+                child: _photoFile == null
+                    ? Container(
+                        width: double.infinity,
+                        height: 220,
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                              color: AppColors.primaryLight, width: 2),
+                        ),
+                        child: const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add_photo_alternate_outlined,
+                                size: 48, color: AppColors.primary),
+                            SizedBox(height: 12),
+                            Text('사진을 선택해주세요',
+                                style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w500)),
+                            SizedBox(height: 4),
+                            Text('탭해서 갤러리 열기',
+                                style: TextStyle(
+                                    color: AppColors.textHint, fontSize: 12)),
+                          ],
+                        ),
+                      )
+                    : Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Image.file(
+                              _photoFile!,
+                              width: double.infinity,
+                              height: 220,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: GestureDetector(
+                              onTap: () =>
+                                  setState(() => _photoFile = null),
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                    color: Colors.black54,
+                                    borderRadius:
+                                        BorderRadius.circular(20)),
+                                child: const Icon(Icons.close,
+                                    color: Colors.white, size: 18),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            bottom: 8,
+                            right: 8,
+                            child: GestureDetector(
+                              onTap: _pickPhoto,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                    color: Colors.black54,
+                                    borderRadius:
+                                        BorderRadius.circular(20)),
+                                child: const Text('사진 변경',
+                                    style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
               ),
+              const SizedBox(height: 20),
+              const Text('한마디 (선택)',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                      fontSize: 15)),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _notesController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: '오늘 ${widget.pet.name}는 어땠나요?',
+                  hintStyle: const TextStyle(
+                      color: AppColors.textHint, fontSize: 14),
+                  filled: true,
+                  fillColor: AppColors.surface,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 14),
+                ),
+              ),
+            ] else if (_isWeight) ...[
+              const Text('몸무게 (kg)',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                      fontSize: 15)),
               const SizedBox(height: 10),
               TextField(
                 controller: _weightController,
@@ -232,21 +389,19 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              const Text(
-                '메모 (선택)',
-                style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                    fontSize: 15),
-              ),
+              const Text('메모 (선택)',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                      fontSize: 15)),
               const SizedBox(height: 10),
               TextField(
                 controller: _notesController,
                 maxLines: 4,
                 decoration: InputDecoration(
                   hintText: '추가로 기록할 내용이 있으면 적어주세요',
-                  hintStyle:
-                      const TextStyle(color: AppColors.textHint, fontSize: 14),
+                  hintStyle: const TextStyle(
+                      color: AppColors.textHint, fontSize: 14),
                   filled: true,
                   fillColor: AppColors.surface,
                   border: OutlineInputBorder(
@@ -268,16 +423,16 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
               const SizedBox(height: 10),
               TextField(
                 controller: _notesController,
-                maxLines: 12,
-                minLines: 8,
+                maxLines: _isHealth ? 4 : 12,
+                minLines: _isHealth ? 3 : 8,
                 autofocus: true,
                 textAlignVertical: TextAlignVertical.top,
                 decoration: InputDecoration(
                   hintText: widget.type == 'health'
                       ? '예: 광견병 예방접종 1차'
                       : '오늘 ${widget.pet.name}의 상태는 어떤가요?',
-                  hintStyle:
-                      const TextStyle(color: AppColors.textHint, fontSize: 14),
+                  hintStyle: const TextStyle(
+                      color: AppColors.textHint, fontSize: 14),
                   filled: true,
                   fillColor: AppColors.surface,
                   border: OutlineInputBorder(
@@ -288,9 +443,112 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                       horizontal: 16, vertical: 14),
                 ),
               ),
+              if (_isHealth) ...[
+                const SizedBox(height: 24),
+                _ReminderSection(
+                  enabled: _reminderEnabled,
+                  date: _reminderDate,
+                  onToggle: (v) => setState(() {
+                    _reminderEnabled = v;
+                    if (v && _reminderDate == null) {
+                      _reminderDate = widget.date.add(const Duration(days: 365));
+                    }
+                  }),
+                  onPickDate: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _reminderDate ?? widget.date.add(const Duration(days: 365)),
+                      firstDate: DateTime.now().add(const Duration(days: 1)),
+                      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+                      locale: const Locale('ko'),
+                    );
+                    if (picked != null) setState(() => _reminderDate = picked);
+                  },
+                ),
+              ],
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ReminderSection extends StatelessWidget {
+  final bool enabled;
+  final DateTime? date;
+  final ValueChanged<bool> onToggle;
+  final VoidCallback onPickDate;
+
+  const _ReminderSection({
+    required this.enabled,
+    required this.date,
+    required this.onToggle,
+    required this.onPickDate,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final fmt = DateFormat('yyyy년 M월 d일', 'ko');
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.notifications_outlined,
+                  size: 20, color: AppColors.primary),
+              const SizedBox(width: 8),
+              const Text('다음 접종 알림',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      color: AppColors.textPrimary)),
+              const Spacer(),
+              Switch(
+                value: enabled,
+                onChanged: onToggle,
+                activeThumbColor: AppColors.primary,
+              ),
+            ],
+          ),
+          if (enabled) ...[
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: onPickDate,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight.withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_today_outlined,
+                        size: 16, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      date != null ? fmt.format(date!) : '날짜를 선택해주세요',
+                      style: const TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 14),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text('  선택한 날에 푸시 알림을 보내드려요',
+                style: TextStyle(fontSize: 12, color: AppColors.textHint)),
+          ],
+        ],
       ),
     );
   }

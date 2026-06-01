@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'core/services/notification_service.dart';
 import 'features/calendar/screens/calendar_screen.dart';
 import 'features/feed/screens/feed_screen.dart';
 import 'features/pet/screens/pet_screen.dart';
@@ -20,6 +21,20 @@ class _AppState extends State<App> {
     PetScreen(),
     ProfileScreen(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    NotificationService.onNotificationTap = () {
+      if (mounted) setState(() => _currentIndex = 0);
+    };
+  }
+
+  @override
+  void dispose() {
+    NotificationService.onNotificationTap = null;
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

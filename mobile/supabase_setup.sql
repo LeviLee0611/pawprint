@@ -189,3 +189,59 @@ create policy "로그인 유저 업로드" on storage.objects
 
 create policy "본인 이미지만 삭제" on storage.objects
   for delete using (auth.uid()::text = (storage.foldername(name))[1] and bucket_id in ('pet-photos', 'post-images'));
+
+
+-- ================================================
+-- Migration: 사진 기록 + FCM 알림 (2026-06-01)
+-- Supabase SQL Editor에서 아래 부분만 실행
+-- ================================================
+
+-- record_type에 photo 추가
+alter type record_type add value if not exists 'photo';
+
+-- records 테이블에 photo_url 추가
+alter table public.records
+  add column if not exists photo_url text;
+
+-- profiles에 fcm_token 추가
+alter table public.profiles
+  add column if not exists fcm_token text;
+
+-- reminders 테이블
+create table if not exists public.reminders (
+  id uuid default gen_random_uuid() primary key,
+  owner_id uuid references auth.users on delete cascade not null,
+  pet_id uuid references public.pets(id) on delete cascade not null,
+  title text not null,
+  remind_at date not null,
+  sent boolean default false,
+  created_at timestamptz default now()
+);
+
+alter table public.reminders enable row level security;
+
+create policy "본인 알림만 관리" on public.reminders
+  for all using (auth.uid() = owner_id);
+
+create index if not exists reminders_remind_at_sent_idx
+  on public.reminders (remind_at, sent)
+  where sent = false;
+
+-- record-photos Storage 버킷
+insert into storage.buckets (id, name, public)
+  values ('record-photos', 'record-photos', true)
+  on conflict do nothing;
+
+create policy "누구나 기록 사진 조회" on storage.objects
+  for select using (bucket_id = 'record-photos');
+
+create policy "로그인 유저 기록 사진 업로드" on storage.objects
+  for insert with check (
+    auth.role() = 'authenticated' and bucket_id = 'record-photos'
+  );
+
+create policy "본인 기록 사진만 삭제" on storage.objects
+  for delete using (
+    auth.uid()::text = (storage.foldername(name))[1]
+    and bucket_id = 'record-photos'
+  );

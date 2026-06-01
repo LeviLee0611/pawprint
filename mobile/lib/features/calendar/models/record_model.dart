@@ -6,6 +6,7 @@ class Record {
   final String type;
   final String? notes;
   final double? value;
+  final String? photoUrl;
   final DateTime createdAt;
 
   const Record({
@@ -16,6 +17,7 @@ class Record {
     required this.type,
     this.notes,
     this.value,
+    this.photoUrl,
     required this.createdAt,
   });
 
@@ -27,6 +29,7 @@ class Record {
         type: json['type'] as String,
         notes: json['notes'] as String?,
         value: json['value'] != null ? (json['value'] as num).toDouble() : null,
+        photoUrl: json['photo_url'] as String?,
         createdAt: DateTime.parse(json['created_at'] as String),
       );
 
@@ -44,6 +47,8 @@ class Record {
         return '놀이';
       case 'note':
         return '건강 메모';
+      case 'photo':
+        return '사진 기록';
       default:
         return type;
     }
@@ -63,6 +68,8 @@ class Record {
         return '🎾';
       case 'note':
         return '📝';
+      case 'photo':
+        return '📷';
       default:
         return '📋';
     }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:app_links/app_links.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -7,6 +8,8 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config.dart';
 import 'app.dart';
+import 'firebase_options.dart';
+import 'core/services/notification_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'features/pet/screens/add_pet_screen.dart';
@@ -16,6 +19,10 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   KakaoSdk.init(nativeAppKey: kakaoNativeAppKey);
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   await Supabase.initialize(
     url: supabaseUrl,
@@ -108,6 +115,8 @@ class AuthGate extends StatelessWidget {
         }
         final session = Supabase.instance.client.auth.currentSession;
         if (session == null) return const LoginScreen();
+        // 로그인 상태면 FCM 토큰 초기화
+        NotificationService.init();
         return const _PetGate();
       },
     );

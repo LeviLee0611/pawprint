@@ -4,6 +4,8 @@ import 'package:table_calendar/table_calendar.dart';
 import '../models/record_model.dart';
 import '../services/record_service.dart';
 import '../screens/add_record_screen.dart';
+import '../screens/photo_gallery_screen.dart';
+import '../screens/photo_viewer_screen.dart';
 import '../widgets/record_bottom_sheet.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../pet/models/pet_model.dart';
@@ -183,7 +185,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
             ? '${_activePet!.emoji} ${_activePet!.name}'
             : '🐾 냥발도장'),
         actions: [
-          if (_pets.isNotEmpty)
+          if (_pets.isNotEmpty) ...[
+            IconButton(
+              icon: const Icon(Icons.photo_library_outlined),
+              color: AppColors.brown,
+              tooltip: '사진 모아보기',
+              onPressed: () => Navigator.push(context,
+                  MaterialPageRoute(
+                      builder: (_) => const PhotoGalleryScreen())),
+            ),
             IconButton(
               icon: const Icon(Icons.add_circle_outline),
               color: AppColors.primary,
@@ -191,6 +201,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               onPressed: () =>
                   _showRecordSheet(_selectedDay ?? DateTime.now()),
             ),
+          ],
         ],
       ),
       body: _pets.isEmpty ? _buildNoPetState() : _buildCalendar(),
@@ -468,7 +479,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
               record: r,
               pet: showPetBadge ? petMap[r.petId] : null,
               onDelete: () async {
-                await RecordService().deleteRecord(r.id);
+                await RecordService()
+                    .deleteRecord(r.id, photoUrl: r.photoUrl);
                 if (mounted) {
                   await _loadRecords(_focusedDay.year, _focusedDay.month);
                 }
@@ -555,6 +567,7 @@ class _RecordTile extends StatelessWidget {
         ],
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(record.emoji, style: const TextStyle(fontSize: 22)),
           const SizedBox(width: 12),
@@ -591,29 +604,48 @@ class _RecordTile extends StatelessWidget {
                   ],
                 ),
                 if (record.value != null)
-                  Text(
-                    '${record.value} kg',
-                    style: const TextStyle(
-                        color: AppColors.textSecondary, fontSize: 13),
-                  ),
+                  Text('${record.value} kg',
+                      style: const TextStyle(
+                          color: AppColors.textSecondary, fontSize: 13)),
                 if (record.notes != null && record.notes!.isNotEmpty)
-                  Text(
-                    record.notes!,
-                    style: const TextStyle(
-                        color: AppColors.textSecondary, fontSize: 13),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  Text(record.notes!,
+                      style: const TextStyle(
+                          color: AppColors.textSecondary, fontSize: 13),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
+          if (record.photoUrl != null)
+            GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      PhotoViewerScreen(record: record, pet: pet),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.only(left: 10),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Image.network(
+                    record.photoUrl!,
+                    width: 72,
+                    height: 72,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => const SizedBox(),
+                  ),
+                ),
+              ),
+            ),
           if (onDelete != null)
             GestureDetector(
               onTap: onDelete,
               child: const Padding(
                 padding: EdgeInsets.only(left: 8),
-                child: Icon(Icons.close,
-                    size: 16, color: AppColors.textHint),
+                child:
+                    Icon(Icons.close, size: 16, color: AppColors.textHint),
               ),
             ),
         ],
