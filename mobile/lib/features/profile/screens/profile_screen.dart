@@ -314,7 +314,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             backgroundImage:
                 avatarUrl != null ? NetworkImage(avatarUrl) : null,
             child: avatarUrl == null
-                ? const Icon(Icons.person, size: 36, color: AppColors.primary)
+                ? ClipOval(
+                    child: Image.asset('assets/images/앱로고.png',
+                        width: 72, height: 72, fit: BoxFit.cover))
                 : null,
           ),
           const SizedBox(width: 16),

@@ -79,10 +79,10 @@ class _LoginScreenState extends State<LoginScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text('🐾', style: TextStyle(fontSize: 72)),
+              Image.asset('assets/images/앱로고.png', width: 120),
               const SizedBox(height: 16),
               const Text(
-                '냥발도장',
+                '댕냥스토리',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,

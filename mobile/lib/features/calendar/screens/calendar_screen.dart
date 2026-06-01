@@ -184,7 +184,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       appBar: AppBar(
         title: Text(_activePet != null
             ? '${_activePet!.emoji} ${_activePet!.name}'
-            : '🐾 냥발도장'),
+            : '댕냥스토리'),
         actions: [
           if (_pets.isNotEmpty) ...[
             IconButton(

@@ -509,8 +509,9 @@ class _Avatar extends StatelessWidget {
       backgroundColor: AppColors.primaryLight,
       backgroundImage: url != null ? NetworkImage(url!) : null,
       child: url == null
-          ? Icon(Icons.person,
-              size: size * 0.5, color: AppColors.primary)
+          ? ClipOval(
+              child: Image.asset('assets/images/앱로고.png',
+                  width: size, height: size, fit: BoxFit.cover))
           : null,
     );
   }
