@@ -33,6 +33,114 @@ class _PetScreenState extends State<PetScreen> {
     });
   }
 
+  Future<void> _showPetOptions(BuildContext context, Pet pet) async {
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.edit_outlined,
+                          color: AppColors.textPrimary),
+                      title: const Text('편집'),
+                      onTap: () async {
+                        Navigator.pop(context);
+                        final updated = await Navigator.push<bool>(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => EditPetScreen(pet: pet)),
+                        );
+                        if (updated == true) await _loadPets();
+                      },
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.delete_outline,
+                          color: Colors.red),
+                      title: const Text('삭제',
+                          style: TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.w600)),
+                      onTap: () async {
+                        Navigator.pop(context);
+                        await _confirmDelete(pet);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: ListTile(
+                  onTap: () => Navigator.pop(context),
+                  title: const Text('취소',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(Pet pet) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('${pet.emoji} ${pet.name} 삭제',
+            style: const TextStyle(fontWeight: FontWeight.bold)),
+        content: const Text(
+            '삭제하면 이 아이의 모든 기록이 함께 삭제되며\n복구할 수 없어요.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소',
+                style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('삭제',
+                style: TextStyle(
+                    color: Colors.red, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await _petService.deletePet(pet.id,
+          photoUrl: pet.profileImageUrl);
+      await _loadPets();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('삭제 실패: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -50,16 +158,8 @@ class _PetScreenState extends State<PetScreen> {
                       itemCount: _pets.length,
                       itemBuilder: (context, index) => _PetCard(
                           pet: _pets[index],
-                          onEdit: () async {
-                            final updated = await Navigator.push<bool>(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    EditPetScreen(pet: _pets[index]),
-                              ),
-                            );
-                            if (updated == true) await _loadPets();
-                          },
+                          onOptions: () =>
+                              _showPetOptions(context, _pets[index]),
                         ),
                     ),
             ),
@@ -108,9 +208,9 @@ class _PetScreenState extends State<PetScreen> {
 
 class _PetCard extends StatelessWidget {
   final Pet pet;
-  final VoidCallback? onEdit;
+  final VoidCallback? onOptions;
 
-  const _PetCard({required this.pet, this.onEdit});
+  const _PetCard({required this.pet, this.onOptions});
 
   String _ageString(DateTime? birthday) {
     if (birthday == null) return '';
@@ -190,13 +290,13 @@ class _PetCard extends StatelessWidget {
                       Text(pet.emoji,
                           style: const TextStyle(fontSize: 17)),
                       const Spacer(),
-                      if (onEdit != null)
+                      if (onOptions != null)
                         GestureDetector(
-                          onTap: onEdit,
+                          onTap: onOptions,
                           child: const Padding(
                             padding: EdgeInsets.all(4),
-                            child: Icon(Icons.edit_outlined,
-                                size: 18, color: AppColors.textHint),
+                            child: Icon(Icons.more_vert,
+                                size: 20, color: AppColors.textHint),
                           ),
                         ),
                     ],

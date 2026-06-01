@@ -8,6 +8,19 @@ class PetService {
   static const _allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
   static const _maxFileSizeBytes = 5 * 1024 * 1024; // 5MB
 
+  Future<void> deletePet(String petId, {String? photoUrl}) async {
+    // 사진 파일 먼저 정리
+    if (photoUrl != null) {
+      final path = _storagePath(photoUrl, 'pet-photos');
+      if (path != null) {
+        try {
+          await _supabase.storage.from('pet-photos').remove([path]);
+        } catch (_) {}
+      }
+    }
+    await _supabase.from('pets').delete().eq('id', petId);
+  }
+
   Future<List<Pet>> getMyPets() async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return [];
