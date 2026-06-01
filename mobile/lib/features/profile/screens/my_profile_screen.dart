@@ -5,6 +5,7 @@ import '../../feed/models/post_model.dart';
 import '../../feed/screens/post_detail_screen.dart';
 import '../../feed/services/follow_service.dart';
 import '../../feed/services/post_service.dart';
+import '../widgets/profile_banner.dart';
 
 class MyProfileScreen extends StatefulWidget {
   const MyProfileScreen({super.key});
@@ -44,7 +45,8 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
         _followers = counts['followers'] ?? 0;
         _following = counts['following'] ?? 0;
       });
-    } catch (_) {
+    } catch (e) {
+      debugPrint('MyProfileScreen load error: $e');
       if (mounted) setState(() => _hasError = true);
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -60,10 +62,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
             '이름 없음') as String;
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
         title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: false,
       ),
@@ -107,75 +106,18 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 그라데이션 배너
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(16, 100, 16, 24),
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFFFE0B2),
-                Color(0xFFFFF3E8),
-                Color(0xFFFFFAF5),
-              ],
-              stops: [0.0, 0.5, 1.0],
-            ),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+        ProfileBanner(
+          avatarUrl: avatarUrl,
+          name: name,
+          statsRow: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              // 아바타 — 흰 테두리링
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 3),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.2),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: CircleAvatar(
-                  radius: 42,
-                  backgroundColor: AppColors.primaryLight,
-                  backgroundImage:
-                      avatarUrl != null ? NetworkImage(avatarUrl) : null,
-                  child: avatarUrl == null
-                      ? ClipOval(
-                          child: Image.asset('assets/images/앱로고.png',
-                              width: 84, height: 84, fit: BoxFit.cover))
-                      : null,
-                ),
-              ),
-              const SizedBox(width: 20),
-              // 통계
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _StatColumn(value: '${_posts.length}', label: '게시물'),
-                    _StatColumn(value: '$_followers', label: '팔로워'),
-                    _StatColumn(value: '$_following', label: '팔로잉'),
-                  ],
-                ),
-              ),
+              _StatColumn(value: '${_posts.length}', label: '게시물'),
+              _StatColumn(value: '$_followers', label: '팔로워'),
+              _StatColumn(value: '$_following', label: '팔로잉'),
             ],
           ),
         ),
-        // 이름
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-          child: Text(name,
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: AppColors.textPrimary)),
-        ),
-        const Divider(height: 1),
       ],
     );
   }

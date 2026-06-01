@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/utils/storage_path_util.dart';
 import '../models/record_model.dart';
 
 class RecordService {
@@ -161,7 +162,7 @@ class RecordService {
 
       // 기존 사진 삭제
       if (oldPhotoUrl != null) {
-        final path = _storagePath(oldPhotoUrl);
+        final path = StoragePathUtil.fromUrl(oldPhotoUrl, _bucket);
         if (path != null) {
           try {
             await _supabase.storage.from(_bucket).remove([path]);
@@ -188,7 +189,7 @@ class RecordService {
 
   Future<void> deleteRecord(String id, {String? photoUrl}) async {
     if (photoUrl != null) {
-      final path = _storagePath(photoUrl);
+      final path = StoragePathUtil.fromUrl(photoUrl, _bucket);
       if (path != null) {
         try {
           await _supabase.storage.from(_bucket).remove([path]);
@@ -198,10 +199,4 @@ class RecordService {
     await _supabase.from('records').delete().eq('id', id);
   }
 
-  String? _storagePath(String url) {
-    final marker = '/object/public/$_bucket/';
-    final idx = url.indexOf(marker);
-    if (idx == -1) return null;
-    return url.substring(idx + marker.length);
-  }
 }

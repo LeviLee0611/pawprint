@@ -56,10 +56,11 @@ class NotificationService {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return;
     try {
-      await _supabase
-          .from('profiles')
-          .update({'fcm_token': token})
-          .eq('id', userId);
+      await _supabase.from('fcm_tokens').upsert({
+        'owner_id': userId,
+        'token': token,
+        'updated_at': DateTime.now().toIso8601String(),
+      });
     } catch (_) {}
   }
 
@@ -68,9 +69,9 @@ class NotificationService {
     if (userId == null) return;
     try {
       await _supabase
-          .from('profiles')
-          .update({'fcm_token': null})
-          .eq('id', userId);
+          .from('fcm_tokens')
+          .delete()
+          .eq('owner_id', userId);
       await _messaging.deleteToken();
     } catch (_) {}
     _initialized = false;

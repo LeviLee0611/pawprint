@@ -127,22 +127,20 @@ serve(async () => {
     }
 
     const ownerIds = [...new Set(reminders.map((r) => r.owner_id))]
-    const { data: profiles, error: pErr } = await supabase
-      .from('profiles')
-      .select('id, fcm_token')
-      .in('id', ownerIds)
+    const { data: tokens, error: pErr } = await supabase
+      .from('fcm_tokens')
+      .select('owner_id, token')
+      .in('owner_id', ownerIds)
 
     if (pErr) throw pErr
 
     const tokenMap = Object.fromEntries(
-      (profiles ?? [])
-        .filter((p) => p.fcm_token)
-        .map((p) => [p.id, p.fcm_token as string])
+      (tokens ?? []).map((t) => [t.owner_id, t.token as string])
     )
 
     const sentIds: string[] = []
     for (const r of reminders) {
-      const fcmToken = tokenMap[r.owner_id]
+      const fcmToken = tokenMap[r.owner_id as string]
       if (!fcmToken) continue
       const ok = await sendFcm(fcmToken, '예방접종 알림 🐾', r.title, projectId, accessToken)
       if (ok) sentIds.push(r.id)

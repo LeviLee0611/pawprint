@@ -32,18 +32,77 @@ class _FeedScreenState extends State<FeedScreen> {
   _FeedFilter _filter = _FeedFilter.all;
   bool _loading = true;
   bool _hasError = false;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  final Set<String> _togglingLikes = {};
+  late final ScrollController _scrollController;
 
   @override
   void initState() {
     super.initState();
+    _scrollController = ScrollController()..addListener(_onScroll);
     _loadAll();
   }
 
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 300 &&
+        !_loadingMore &&
+        _hasMore &&
+        !_loading) {
+      _loadMore();
+    }
+  }
+
+  Future<void> _loadMore() async {
+    setState(() => _loadingMore = true);
+    try {
+      final more = await _postService.getPosts(offset: _posts.length);
+      if (!mounted) return;
+      setState(() {
+        _posts.addAll(_enrichPosts(more));
+        _hasMore = more.length >= 20;
+      });
+    } catch (e) {
+      debugPrint('loadMore error: $e');
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
+  List<Pet> _cachedPets = [];
+
+  List<Post> _enrichPosts(List<Post> rawPosts) {
+    final petMap = {for (final p in _cachedPets) p.id: p};
+    final me = Supabase.instance.client.auth.currentUser;
+    final myName = (me?.userMetadata?['full_name'] ??
+        me?.userMetadata?['name'] ??
+        '나') as String;
+    final myAvatar = me?.userMetadata?['avatar_url'] as String?;
+    return rawPosts.map((post) {
+      Post p = post;
+      if (post.ownerId == me?.id) {
+        p = p.copyWith(ownerName: myName, ownerAvatarUrl: myAvatar);
+      }
+      if (p.petId != null && petMap.containsKey(p.petId)) {
+        final pet = petMap[p.petId!]!;
+        p = p.copyWith(petName: pet.name, petType: pet.type);
+      }
+      return p;
+    }).toList();
+  }
+
   Future<void> _loadAll() async {
-    setState(() => _loading = true);
+    setState(() { _loading = true; _hasError = false; _hasMore = true; });
     try {
       final results = await Future.wait([
-        _postService.getPosts(),
+        _postService.getPosts(offset: 0),
         _petService.getMyPets(),
         _followService.getFollowingIds(),
       ]);
@@ -51,32 +110,15 @@ class _FeedScreenState extends State<FeedScreen> {
       final rawPosts = results[0] as List<Post>;
       final pets = results[1] as List<Pet>;
       final followingIds = results[2] as List<String>;
-      final petMap = {for (final p in pets) p.id: p};
-
-      final me = Supabase.instance.client.auth.currentUser;
-      final myName = (me?.userMetadata?['full_name']
-              ?? me?.userMetadata?['name']
-              ?? '나') as String;
-      final myAvatar = me?.userMetadata?['avatar_url'] as String?;
-
-      final enriched = rawPosts.map((post) {
-        Post p = post;
-        if (post.ownerId == me?.id) {
-          p = p.copyWith(ownerName: myName, ownerAvatarUrl: myAvatar);
-        }
-        if (p.petId != null && petMap.containsKey(p.petId)) {
-          final pet = petMap[p.petId!]!;
-          p = p.copyWith(petName: pet.name, petType: pet.type);
-        }
-        return p;
-      }).toList();
-
+      _cachedPets = pets;
       setState(() {
-        _posts = enriched;
+        _posts = _enrichPosts(rawPosts);
         _myPets = pets;
         _followingIds = followingIds.toSet();
+        _hasMore = rawPosts.length >= 20;
       });
-    } catch (_) {
+    } catch (e) {
+      debugPrint('loadAll error: $e');
       if (mounted) setState(() => _hasError = true);
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -102,6 +144,8 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Future<void> _toggleLike(int index) async {
     final post = _posts[index];
+    if (_togglingLikes.contains(post.id)) return; // race condition 방지
+    _togglingLikes.add(post.id);
     setState(() {
       _posts[index] = post.copyWith(
         isLikedByMe: !post.isLikedByMe,
@@ -110,8 +154,11 @@ class _FeedScreenState extends State<FeedScreen> {
     });
     try {
       await _postService.toggleLike(post.id);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('toggleLike error: $e');
       if (mounted) setState(() => _posts[index] = post);
+    } finally {
+      _togglingLikes.remove(post.id);
     }
   }
 
@@ -231,36 +278,50 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Widget _buildFeed() {
     final posts = _filteredPosts;
-    return ListView.separated(
+    return ListView.builder(
+      controller: _scrollController,
       padding: const EdgeInsets.only(bottom: 100),
-      itemCount: posts.length,
-      separatorBuilder: (_, _) =>
-          const Divider(height: 1, color: Color(0xFFEDE8E3)),
+      itemCount: posts.length + (_loadingMore ? 1 : 0),
       itemBuilder: (context, index) {
+        if (index == posts.length) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
+          );
+        }
         final post = posts[index];
         final rawIndex = _posts.indexOf(post);
-        return _ThreadPost(
-          post: post,
-          onLike: () => _toggleLike(rawIndex),
-          onTap: () async {
-            await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => PostDetailScreen(post: post),
-              ),
-            );
-            await _loadAll();
-          },
-          onProfileTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => UserProfileScreen(
-                userId: post.ownerId,
-                initialName: post.ownerName,
-                initialAvatarUrl: post.ownerAvatarUrl,
+        final isLast = index < posts.length - 1;
+        return Column(
+          children: [
+            _ThreadPost(
+              post: post,
+              onLike: () => _toggleLike(rawIndex),
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => PostDetailScreen(post: post),
+                  ),
+                );
+                await _loadAll();
+              },
+              onProfileTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => UserProfileScreen(
+                    userId: post.ownerId,
+                    initialName: post.ownerName,
+                    initialAvatarUrl: post.ownerAvatarUrl,
+                  ),
+                ),
               ),
             ),
-          ),
+            if (isLast)
+              const Divider(height: 1, color: Color(0xFFEDE8E3)),
+          ],
         );
       },
     );

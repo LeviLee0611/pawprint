@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/utils/storage_path_util.dart';
 import '../models/post_model.dart';
 
 class PostService {
@@ -10,13 +11,16 @@ class PostService {
   static const _commentSelect =
       '*, profiles:owner_id(display_name, avatar_url)';
 
-  Future<List<Post>> getPosts() async {
+  static const _pageSize = 20;
+
+  Future<List<Post>> getPosts({int offset = 0}) async {
     final userId = _supabase.auth.currentUser?.id;
 
     final data = await _supabase
         .from('posts')
         .select(_postSelect)
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: false)
+        .range(offset, offset + _pageSize - 1);
 
     Set<String> myLikes = {};
     if (userId != null) {
@@ -126,7 +130,7 @@ class PostService {
   /// imageUrl을 받아서 Storage 파일도 같이 삭제
   Future<void> deletePost(String postId, {String? imageUrl}) async {
     if (imageUrl != null) {
-      final path = _storagePath(imageUrl, 'post-images');
+      final path = StoragePathUtil.fromUrl(imageUrl, 'post-images');
       if (path != null) {
         try {
           await _supabase.storage.from('post-images').remove([path]);
@@ -187,12 +191,4 @@ class PostService {
     await _supabase.from('comments').delete().eq('id', commentId);
   }
 
-  /// Supabase public URL에서 storage path 추출
-  /// e.g. ".../object/public/post-images/uid/file.jpg" → "uid/file.jpg"
-  String? _storagePath(String url, String bucket) {
-    final marker = '/object/public/$bucket/';
-    final idx = url.indexOf(marker);
-    if (idx == -1) return null;
-    return url.substring(idx + marker.length);
-  }
 }

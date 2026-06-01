@@ -91,3 +91,91 @@ begin
   return new;
 end;
 $$ language plpgsql security definer;
+
+-- ================================================
+-- DB 구조 점검 및 최적화 (2026-06-01)
+-- ================================================
+
+-- 1. 인덱스 추가 ─ 자주 쓰는 컬럼에 인덱스 없으면 full scan 발생
+create index if not exists idx_pets_owner_id
+  on public.pets(owner_id);
+
+create index if not exists idx_records_pet_date
+  on public.records(pet_id, date);
+
+create index if not exists idx_records_owner_id
+  on public.records(owner_id);
+
+create index if not exists idx_posts_owner_id
+  on public.posts(owner_id);
+
+create index if not exists idx_posts_created_at
+  on public.posts(created_at desc);
+
+create index if not exists idx_comments_post_id
+  on public.comments(post_id);
+
+create index if not exists idx_likes_owner_id
+  on public.likes(owner_id);
+
+create index if not exists idx_likes_post_id
+  on public.likes(post_id);
+
+
+-- 2. likes_count / comments_count 음수 방지
+--    트리거가 count = 0 일 때도 -1 할 수 있어서 방어 제약 추가
+alter table public.posts
+  add constraint if not exists posts_likes_count_nn check (likes_count >= 0),
+  add constraint if not exists posts_comments_count_nn check (comments_count >= 0);
+
+-- 트리거도 보정: 0 이하로 내려가지 않도록
+create or replace function update_likes_count()
+returns trigger as $$
+begin
+  if TG_OP = 'INSERT' then
+    update public.posts set likes_count = likes_count + 1 where id = new.post_id;
+  elsif TG_OP = 'DELETE' then
+    update public.posts set likes_count = greatest(likes_count - 1, 0) where id = old.post_id;
+  end if;
+  return null;
+end;
+$$ language plpgsql security definer;
+
+create or replace function update_comments_count()
+returns trigger as $$
+begin
+  if TG_OP = 'INSERT' then
+    update public.posts set comments_count = comments_count + 1 where id = new.post_id;
+  elsif TG_OP = 'DELETE' then
+    update public.posts set comments_count = greatest(comments_count - 1, 0) where id = old.post_id;
+  end if;
+  return null;
+end;
+$$ language plpgsql security definer;
+
+
+-- 3. fcm_token 보안 강화 ─ profiles의 fcm_token을 별도 테이블로 분리
+--    현재 "모두 조회 가능" 정책으로 fcm_token이 타 유저에게 노출됨
+create table if not exists public.fcm_tokens (
+  owner_id uuid references public.profiles(id) on delete cascade primary key,
+  token text not null,
+  updated_at timestamptz default now()
+);
+
+alter table public.fcm_tokens enable row level security;
+
+drop policy if exists "본인 fcm_token만 관리" on public.fcm_tokens;
+create policy "본인 fcm_token만 관리" on public.fcm_tokens
+  for all using (auth.uid() = owner_id);
+
+-- Edge Function(서버)이 모든 토큰 읽을 수 있도록
+-- (서비스 롤 키를 쓰는 Edge Function은 RLS 우회하므로 별도 정책 불필요)
+
+-- 기존 profiles.fcm_token 데이터 이전
+insert into public.fcm_tokens (owner_id, token)
+  select id, fcm_token from public.profiles
+  where fcm_token is not null
+on conflict (owner_id) do update set token = excluded.token;
+
+-- profiles에서 fcm_token 컬럼 제거 (데이터 이전 후)
+alter table public.profiles drop column if exists fcm_token;

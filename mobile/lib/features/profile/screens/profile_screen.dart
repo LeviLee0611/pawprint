@@ -315,7 +315,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 avatarUrl != null ? NetworkImage(avatarUrl) : null,
             child: avatarUrl == null
                 ? ClipOval(
-                    child: Image.asset('assets/images/앱로고.png',
+                    child: Image.asset('assets/images/포포얼굴사진.png',
                         width: 72, height: 72, fit: BoxFit.cover))
                 : null,
           ),

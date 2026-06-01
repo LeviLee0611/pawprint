@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/utils/storage_path_util.dart';
 import '../models/pet_model.dart';
 
 class PetService {
@@ -11,7 +12,7 @@ class PetService {
   Future<void> deletePet(String petId, {String? photoUrl}) async {
     // 사진 파일 먼저 정리
     if (photoUrl != null) {
-      final path = _storagePath(photoUrl, 'pet-photos');
+      final path = StoragePathUtil.fromUrl(photoUrl, 'pet-photos');
       if (path != null) {
         try {
           await _supabase.storage.from('pet-photos').remove([path]);
@@ -95,7 +96,7 @@ class PetService {
 
     // DB 성공 후 기존 사진 정리
     if (newProfileImage != null && existingPhotoUrl != null) {
-      final oldPath = _storagePath(existingPhotoUrl, 'pet-photos');
+      final oldPath = StoragePathUtil.fromUrl(existingPhotoUrl, 'pet-photos');
       if (oldPath != null) {
         try {
           await _supabase.storage.from('pet-photos').remove([oldPath]);
@@ -104,12 +105,7 @@ class PetService {
     }
   }
 
-  String? _storagePath(String url, String bucket) {
-    final marker = '/object/public/$bucket/';
-    final idx = url.indexOf(marker);
-    if (idx == -1) return null;
-    return url.substring(idx + marker.length);
-  }
+
 
   Future<Pet> addPet({
     required String name,

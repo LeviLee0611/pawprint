@@ -7,6 +7,7 @@ import '../../feed/services/follow_service.dart';
 import '../../feed/services/post_service.dart';
 import '../../pet/models/pet_model.dart';
 import '../../pet/services/pet_service.dart';
+import '../widgets/profile_banner.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final String userId;
@@ -64,7 +65,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         _following = counts['following'] ?? 0;
         if (!_isMyProfile) _isFollowing = results[3] as bool;
       });
-    } catch (_) {
+    } catch (e) {
+      debugPrint('UserProfileScreen load error: $e');
       if (mounted) setState(() => _hasError = true);
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -137,128 +139,98 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Widget _buildHeader(String? avatarUrl, String name) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 40,
-                backgroundColor: AppColors.primaryLight,
-                backgroundImage:
-                    avatarUrl != null ? NetworkImage(avatarUrl) : null,
-                child: avatarUrl == null
-                    ? const Icon(Icons.person,
-                        size: 40, color: AppColors.primary)
-                    : null,
-              ),
-              const SizedBox(width: 24),
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _StatColumn(
-                        value: '${_posts.length}', label: '게시물'),
-                    _StatColumn(
-                        value: '$_followers', label: '팔로워'),
-                    _StatColumn(
-                        value: '$_following', label: '팔로잉'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Text(name,
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                  color: AppColors.textPrimary)),
-          if (!_isMyProfile) ...[
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: _followLoading
-                  ? const Center(
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.primary),
-                      ),
-                    )
-                  : OutlinedButton(
-                      onPressed: _toggleFollow,
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: _isFollowing
-                            ? Colors.transparent
-                            : AppColors.primary,
-                        foregroundColor: _isFollowing
-                            ? AppColors.textPrimary
-                            : Colors.white,
-                        side: BorderSide(
-                          color: _isFollowing
-                              ? AppColors.brownLight
-                              : AppColors.primary,
-                        ),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8)),
-                        padding:
-                            const EdgeInsets.symmetric(vertical: 8),
-                      ),
-                      child: Text(
-                        _isFollowing ? '팔로잉' : '팔로우',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14),
-                      ),
+    final followBtn = _isMyProfile
+        ? null
+        : SizedBox(
+            width: double.infinity,
+            child: _followLoading
+                ? const Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: AppColors.primary),
                     ),
-            ),
-          ],
-          if (_pets.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: _pets.map((pet) => Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (pet.profileImageUrl != null)
-                      ClipOval(
-                        child: Image.network(
-                          pet.profileImageUrl!,
-                          width: 20, height: 20,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) =>
-                              Text(pet.emoji, style: const TextStyle(fontSize: 14)),
-                        ),
-                      )
-                    else
-                      Text(pet.emoji, style: const TextStyle(fontSize: 14)),
-                    const SizedBox(width: 5),
-                    Text(pet.name,
-                        style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primary)),
-                  ],
-                ),
-              )).toList(),
-            ),
-          ],
-          const SizedBox(height: 16),
-          const Divider(height: 1),
+                  )
+                : OutlinedButton(
+                    onPressed: _toggleFollow,
+                    style: OutlinedButton.styleFrom(
+                      backgroundColor:
+                          _isFollowing ? Colors.transparent : AppColors.primary,
+                      foregroundColor:
+                          _isFollowing ? AppColors.textPrimary : Colors.white,
+                      side: BorderSide(
+                        color: _isFollowing
+                            ? AppColors.brownLight
+                            : AppColors.primary,
+                      ),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    child: Text(
+                      _isFollowing ? '팔로잉' : '팔로우',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                  ),
+          );
+
+    final petsWidget = _pets.isEmpty
+        ? null
+        : Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: _pets
+                .map((pet) => Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryLight,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (pet.profileImageUrl != null)
+                            ClipOval(
+                              child: Image.network(
+                                pet.profileImageUrl!,
+                                width: 20,
+                                height: 20,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => Text(pet.emoji,
+                                    style: const TextStyle(fontSize: 14)),
+                              ),
+                            )
+                          else
+                            Text(pet.emoji,
+                                style: const TextStyle(fontSize: 14)),
+                          const SizedBox(width: 5),
+                          Text(pet.name,
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primary)),
+                        ],
+                      ),
+                    ))
+                .toList(),
+          );
+
+    return ProfileBanner(
+      avatarUrl: avatarUrl,
+      name: name,
+      statsRow: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _StatColumn(value: '${_posts.length}', label: '게시물'),
+          _StatColumn(value: '$_followers', label: '팔로워'),
+          _StatColumn(value: '$_following', label: '팔로잉'),
         ],
       ),
+      actionButton: followBtn,
+      petsRow: petsWidget,
     );
   }
 
