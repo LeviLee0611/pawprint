@@ -5,6 +5,8 @@ import '../../feed/models/post_model.dart';
 import '../../feed/screens/post_detail_screen.dart';
 import '../../feed/services/follow_service.dart';
 import '../../feed/services/post_service.dart';
+import '../../pet/models/pet_model.dart';
+import '../../pet/services/pet_service.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final String userId;
@@ -25,8 +27,10 @@ class UserProfileScreen extends StatefulWidget {
 class _UserProfileScreenState extends State<UserProfileScreen> {
   final _followService = FollowService();
   final _postService = PostService();
+  final _petService = PetService();
 
   List<Post> _posts = [];
+  List<Pet> _pets = [];
   int _followers = 0;
   int _following = 0;
   bool _isFollowing = false;
@@ -48,15 +52,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       final results = await Future.wait([
         _postService.getPostsByUser(widget.userId),
         _followService.getFollowCounts(widget.userId),
+        _petService.getPetsByUser(widget.userId),
         if (!_isMyProfile) _followService.isFollowing(widget.userId),
       ]);
       if (!mounted) return;
       final counts = results[1] as Map<String, int>;
       setState(() {
         _posts = results[0] as List<Post>;
+        _pets = results[2] as List<Pet>;
         _followers = counts['followers'] ?? 0;
         _following = counts['following'] ?? 0;
-        if (!_isMyProfile) _isFollowing = results[2] as bool;
+        if (!_isMyProfile) _isFollowing = results[3] as bool;
       });
     } catch (_) {
       if (mounted) setState(() => _hasError = true);
@@ -210,6 +216,43 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             fontSize: 14),
                       ),
                     ),
+            ),
+          ],
+          if (_pets.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: _pets.map((pet) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (pet.profileImageUrl != null)
+                      ClipOval(
+                        child: Image.network(
+                          pet.profileImageUrl!,
+                          width: 20, height: 20,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) =>
+                              Text(pet.emoji, style: const TextStyle(fontSize: 14)),
+                        ),
+                      )
+                    else
+                      Text(pet.emoji, style: const TextStyle(fontSize: 14)),
+                    const SizedBox(width: 5),
+                    Text(pet.name,
+                        style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary)),
+                  ],
+                ),
+              )).toList(),
             ),
           ],
           const SizedBox(height: 16),

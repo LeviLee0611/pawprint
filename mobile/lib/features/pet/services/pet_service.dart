@@ -34,6 +34,15 @@ class PetService {
     return (data as List).map((e) => Pet.fromJson(e)).toList();
   }
 
+  Future<List<Pet>> getPetsByUser(String userId) async {
+    final data = await _supabase
+        .from('pets')
+        .select()
+        .eq('owner_id', userId)
+        .order('created_at');
+    return (data as List).map((e) => Pet.fromJson(e)).toList();
+  }
+
   Future<void> updatePet({
     required String petId,
     required String name,
