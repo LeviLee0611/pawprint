@@ -31,6 +31,7 @@ class _FeedScreenState extends State<FeedScreen> {
   Set<String> _followingIds = {};
   _FeedFilter _filter = _FeedFilter.all;
   bool _loading = true;
+  bool _hasError = false;
 
   @override
   void initState() {
@@ -76,7 +77,7 @@ class _FeedScreenState extends State<FeedScreen> {
         _followingIds = followingIds.toSet();
       });
     } catch (_) {
-      // 로드 실패해도 스피너 해제
+      if (mounted) setState(() => _hasError = true);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -128,7 +129,9 @@ class _FeedScreenState extends State<FeedScreen> {
       body: _loading
           ? const Center(
               child: CircularProgressIndicator(color: AppColors.primary))
-          : RefreshIndicator(
+          : _hasError
+              ? _buildError()
+              : RefreshIndicator(
               onRefresh: _loadAll,
               color: AppColors.primary,
               child: _filteredPosts.isEmpty
@@ -151,6 +154,28 @@ class _FeedScreenState extends State<FeedScreen> {
         foregroundColor: Colors.white,
         tooltip: _myPets.isEmpty ? '펫을 먼저 등록해요' : '글쓰기',
         child: const Icon(Icons.edit_rounded),
+      ),
+    );
+  }
+
+  Widget _buildError() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.wifi_off_rounded, size: 48, color: AppColors.textHint),
+          const SizedBox(height: 12),
+          const Text('피드를 불러오지 못했어요',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () {
+              setState(() { _hasError = false; _loading = true; });
+              _loadAll();
+            },
+            child: const Text('다시 시도', style: TextStyle(color: AppColors.primary)),
+          ),
+        ],
       ),
     );
   }

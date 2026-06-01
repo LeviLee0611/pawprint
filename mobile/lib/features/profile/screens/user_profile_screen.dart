@@ -32,6 +32,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   bool _isFollowing = false;
   bool _loading = true;
   bool _followLoading = false;
+  bool _hasError = false;
 
   String get _myId => Supabase.instance.client.auth.currentUser?.id ?? '';
   bool get _isMyProfile => widget.userId == _myId;
@@ -58,7 +59,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         if (!_isMyProfile) _isFollowing = results[2] as bool;
       });
     } catch (_) {
-      // 로드 실패해도 스피너 해제
+      if (mounted) setState(() => _hasError = true);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -69,10 +70,16 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     try {
       final nowFollowing =
           await _followService.toggleFollow(widget.userId);
+      if (!mounted) return;
       setState(() {
         _isFollowing = nowFollowing;
         _followers += nowFollowing ? 1 : -1;
       });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('요청에 실패했어요. 다시 시도해주세요.')),
+      );
     } finally {
       if (mounted) setState(() => _followLoading = false);
     }
@@ -92,7 +99,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       body: _loading
           ? const Center(
               child: CircularProgressIndicator(color: AppColors.primary))
-          : RefreshIndicator(
+          : _hasError
+              ? _buildError()
+              : RefreshIndicator(
               color: AppColors.primary,
               onRefresh: _loadData,
               child: CustomScrollView(
@@ -255,6 +264,28 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                   color: AppColors.textPrimary)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildError() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.wifi_off_rounded, size: 48, color: AppColors.textHint),
+          const SizedBox(height: 12),
+          const Text('불러오지 못했어요',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () {
+              setState(() { _hasError = false; _loading = true; });
+              _loadData();
+            },
+            child: const Text('다시 시도', style: TextStyle(color: AppColors.primary)),
+          ),
         ],
       ),
     );

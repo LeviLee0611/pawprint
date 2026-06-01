@@ -258,6 +258,10 @@ create table if not exists public.follows (
 
 alter table public.follows enable row level security;
 
+drop policy if exists "팔로우 조회 허용" on public.follows;
+drop policy if exists "본인 팔로우만 생성" on public.follows;
+drop policy if exists "본인 팔로우만 삭제" on public.follows;
+
 create policy "팔로우 조회 허용" on public.follows
   for select using (true);
 

@@ -21,6 +21,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   int _followers = 0;
   int _following = 0;
   bool _loading = true;
+  bool _hasError = false;
 
   @override
   void initState() {
@@ -44,7 +45,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
         _following = counts['following'] ?? 0;
       });
     } catch (_) {
-      // 로드 실패해도 스피너 해제
+      if (mounted) setState(() => _hasError = true);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -66,7 +67,9 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
       body: _loading
           ? const Center(
               child: CircularProgressIndicator(color: AppColors.primary))
-          : RefreshIndicator(
+          : _hasError
+              ? _buildError()
+              : RefreshIndicator(
               color: AppColors.primary,
               onRefresh: _loadData,
               child: CustomScrollView(
@@ -169,6 +172,28 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
         textAlign: TextAlign.center,
         style: const TextStyle(
             fontSize: 11, color: AppColors.textSecondary),
+      ),
+    );
+  }
+
+  Widget _buildError() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.wifi_off_rounded, size: 48, color: AppColors.textHint),
+          const SizedBox(height: 12),
+          const Text('불러오지 못했어요',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () {
+              setState(() { _hasError = false; _loading = true; });
+              _loadData();
+            },
+            child: const Text('다시 시도', style: TextStyle(color: AppColors.primary)),
+          ),
+        ],
       ),
     );
   }
