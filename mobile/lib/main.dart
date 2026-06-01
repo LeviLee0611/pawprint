@@ -11,6 +11,7 @@ import 'app.dart';
 import 'firebase_options.dart';
 import 'core/services/notification_service.dart';
 import 'core/theme/app_theme.dart';
+import 'core/widgets/running_cat.dart';
 import 'features/auth/screens/login_screen.dart';
 import 'features/pet/screens/add_pet_screen.dart';
 import 'features/pet/services/pet_service.dart';
@@ -75,7 +76,7 @@ class _PawprintAppState extends State<PawprintApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: '냥발도장',
+      title: '댕냥스토리',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.theme,
       locale: const Locale('ko'),
@@ -110,7 +111,7 @@ class AuthGate extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            body: Center(child: RunningCatLoading()),
           );
         }
         final session = Supabase.instance.client.auth.currentSession;
@@ -145,7 +146,7 @@ class _PetGateState extends State<_PetGate> {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+            body: Center(child: RunningCatLoading()),
           );
         }
         final pets = snapshot.data ?? [];
