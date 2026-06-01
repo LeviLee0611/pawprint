@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
-        android:label="포포와 토토"
+        android:label="댕냥스토리"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

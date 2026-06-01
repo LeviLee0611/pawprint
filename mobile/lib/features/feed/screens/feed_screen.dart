@@ -119,7 +119,7 @@ class _FeedScreenState extends State<FeedScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('🐾 포포와 토토'),
+        title: const Text('댕냥스토리'),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(49),
           child: _buildFilterChips(),
