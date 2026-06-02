@@ -5,6 +5,9 @@ lib/config.dart
 _originals/
 remove_bg.py
 
+# Untracked assets (managed in web/mobile repo)
+assets/images/
+
 # Miscellaneous
 *.class
 *.log
