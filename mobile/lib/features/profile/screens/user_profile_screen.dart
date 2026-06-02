@@ -7,6 +7,7 @@ import '../../feed/services/follow_service.dart';
 import '../../feed/services/post_service.dart';
 import '../../pet/models/pet_model.dart';
 import '../../pet/services/pet_service.dart';
+import '../../../core/widgets/app_image.dart';
 import '../widgets/profile_banner.dart';
 import 'follow_list_screen.dart';
 
@@ -252,11 +253,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
       ),
       child: post.imageUrl != null
-          ? Image.network(
-              post.imageUrl!,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => _buildTextTile(post),
-            )
+          ? AppGridImage(url: post.imageUrl!)
           : _buildTextTile(post),
     );
   }

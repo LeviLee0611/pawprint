@@ -24,7 +24,7 @@ class PostService {
 
     // 팔로잉 필터: 내 글 + 팔로우한 사람 글
     if (followingIds != null) {
-      final ids = [...followingIds, if (userId != null) userId];
+      final ids = [...followingIds, ?userId];
       query = query.inFilter('owner_id', ids);
     }
 
@@ -99,6 +99,28 @@ class PostService {
     return data
         .map((e) => Post.fromJson(e, isLikedByMe: myLikes.contains(e['id'])))
         .toList();
+  }
+
+  Future<Post?> getPostById(String postId) async {
+    final myId = _supabase.auth.currentUser?.id;
+    final data = await _supabase
+        .from('posts')
+        .select(_postSelect)
+        .eq('id', postId)
+        .maybeSingle();
+    if (data == null) return null;
+
+    bool isLiked = false;
+    if (myId != null) {
+      final like = await _supabase
+          .from('likes')
+          .select('id')
+          .eq('post_id', postId)
+          .eq('owner_id', myId)
+          .maybeSingle();
+      isLiked = like != null;
+    }
+    return Post.fromJson(data, isLikedByMe: isLiked);
   }
 
   Future<Post> addPost({

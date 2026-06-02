@@ -4,6 +4,7 @@ import 'features/calendar/screens/calendar_screen.dart';
 import 'features/feed/screens/feed_screen.dart';
 import 'features/profile/screens/my_profile_screen.dart';
 import 'features/profile/screens/profile_screen.dart';
+import 'features/search/screens/search_screen.dart';
 
 class App extends StatefulWidget {
   const App({super.key});
@@ -54,6 +55,7 @@ class _AppState extends State<App> {
         children: const [
           CalendarScreen(),
           FeedScreen(),
+          SearchScreen(),
           MyProfileScreen(),
           ProfileScreen(),
         ],
@@ -72,6 +74,11 @@ class _AppState extends State<App> {
             icon: Icon(Icons.dynamic_feed_outlined),
             activeIcon: Icon(Icons.dynamic_feed),
             label: '피드',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.search_outlined),
+            activeIcon: Icon(Icons.search_rounded),
+            label: '검색',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.grid_on_outlined),

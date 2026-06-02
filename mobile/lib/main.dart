@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config.dart';
 import 'app.dart';
 import 'firebase_options.dart';
+import 'core/services/force_update_service.dart';
 import 'core/services/notification_service.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/running_cat.dart';
@@ -136,6 +137,14 @@ class _PetGate extends StatefulWidget {
 
 class _PetGateState extends State<_PetGate> {
   final _petService = PetService();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      showForceUpdateDialogIfNeeded(context);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

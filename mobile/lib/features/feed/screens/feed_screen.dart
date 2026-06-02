@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../notification/screens/notification_screen.dart';
+import '../../notification/services/notification_repository.dart';
 import '../../pet/models/pet_model.dart';
+import '../../../core/widgets/app_image.dart';
 import '../../pet/services/pet_service.dart';
 import '../models/post_model.dart';
 import '../services/post_service.dart';
@@ -25,6 +28,7 @@ class _FeedScreenState extends State<FeedScreen> {
   final _postService = PostService();
   final _petService = PetService();
   final _followService = FollowService();
+  final _notificationRepo = NotificationRepository();
 
   List<Post> _posts = [];
   List<Pet> _myPets = [];
@@ -34,6 +38,7 @@ class _FeedScreenState extends State<FeedScreen> {
   bool _hasError = false;
   bool _loadingMore = false;
   bool _hasMore = true;
+  int _unreadNotifications = 0;
   final Set<String> _togglingLikes = {};
   late final ScrollController _scrollController;
 
@@ -42,6 +47,14 @@ class _FeedScreenState extends State<FeedScreen> {
     super.initState();
     _scrollController = ScrollController()..addListener(_onScroll);
     _loadAll();
+    _loadUnreadCount();
+  }
+
+  Future<void> _loadUnreadCount() async {
+    try {
+      final count = await _notificationRepo.getUnreadCount();
+      if (mounted) setState(() => _unreadNotifications = count);
+    } catch (_) {}
   }
 
   @override
@@ -183,6 +196,23 @@ class _FeedScreenState extends State<FeedScreen> {
             backgroundColor: Colors.transparent,
             elevation: 0,
             title: const Text('댕냥스토리'),
+            actions: [
+              Badge(
+                isLabelVisible: _unreadNotifications > 0,
+                label: Text('$_unreadNotifications'),
+                child: IconButton(
+                  icon: const Icon(Icons.notifications_outlined),
+                  onPressed: () async {
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const NotificationScreen()),
+                    );
+                    _loadUnreadCount();
+                  },
+                ),
+              ),
+            ],
             bottom: PreferredSize(
               preferredSize: const Size.fromHeight(49),
               child: _buildFilterChips(),
@@ -223,23 +253,13 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Widget _buildError() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.wifi_off_rounded, size: 48, color: AppColors.textHint),
-          const SizedBox(height: 12),
-          const Text('피드를 불러오지 못했어요',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-          const SizedBox(height: 12),
-          TextButton(
-            onPressed: () {
-              setState(() { _hasError = false; _loading = true; });
-              _loadAll();
-            },
-            child: const Text('다시 시도', style: TextStyle(color: AppColors.primary)),
-          ),
-        ],
+    return GestureDetector(
+      onTap: () {
+        setState(() { _hasError = false; _loading = true; });
+        _loadAll();
+      },
+      child: Center(
+        child: Image.asset('assets/images/네트워킹이슈_투명.png', width: 320),
       ),
     );
   }
@@ -350,26 +370,19 @@ class _FeedScreenState extends State<FeedScreen> {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
-        SizedBox(height: MediaQuery.of(context).size.height * 0.3),
-        Column(
-          children: [
-            const Text('🐾', style: TextStyle(fontSize: 56)),
-            const SizedBox(height: 16),
-            const Text('아직 첫 글이 없어요',
-                style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary)),
-            const SizedBox(height: 6),
-            Text(
-              _myPets.isEmpty
-                  ? '펫을 먼저 등록해주세요'
-                  : '오른쪽 아래 버튼으로 첫 글을 남겨보세요',
-              style: const TextStyle(
-                  fontSize: 14, color: AppColors.textSecondary),
-            ),
-          ],
+        SizedBox(height: MediaQuery.of(context).size.height * 0.15),
+        Center(
+          child: Image.asset('assets/images/빈화면_투명.png', width: 300),
         ),
+        if (_myPets.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: Text(
+              '펫을 먼저 등록해주세요',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+            ),
+          ),
       ],
     );
   }
@@ -489,16 +502,7 @@ class _ThreadPost extends StatelessWidget {
                   // 이미지
                   if (post.imageUrl != null) ...[
                     const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
-                        post.imageUrl!,
-                        width: double.infinity,
-                        height: 220,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const SizedBox(),
-                      ),
-                    ),
+                    AppPostImage(url: post.imageUrl!),
                   ],
 
                   const SizedBox(height: 10),
@@ -584,16 +588,5 @@ class _Avatar extends StatelessWidget {
   const _Avatar({this.url, required this.size});
 
   @override
-  Widget build(BuildContext context) {
-    return CircleAvatar(
-      radius: size / 2,
-      backgroundColor: AppColors.primaryLight,
-      backgroundImage: url != null ? NetworkImage(url!) : null,
-      child: url == null
-          ? ClipOval(
-              child: Image.asset('assets/images/앱로고.png',
-                  width: size, height: size, fit: BoxFit.cover))
-          : null,
-    );
-  }
+  Widget build(BuildContext context) => AppAvatar(url: url, size: size);
 }

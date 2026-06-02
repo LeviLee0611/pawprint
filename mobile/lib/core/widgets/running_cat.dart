@@ -89,7 +89,7 @@ class _RunningCatLoadingState extends State<RunningCatLoading>
               );
             },
             child: Image.asset(
-              'assets/images/로딩화면사진.png',
+              'assets/images/로딩화면사진_투명.png',
               width: 300,
             ),
           ),

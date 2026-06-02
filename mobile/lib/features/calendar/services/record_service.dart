@@ -175,7 +175,7 @@ class RecordService {
       await _supabase.from('records').update({
         'notes': notes,
         'value': value,
-        if (newPhotoUrl != null) 'photo_url': newPhotoUrl,
+        'photo_url': ?newPhotoUrl,
       }).eq('id', id);
     } catch (e) {
       if (newStoragePath != null) {
