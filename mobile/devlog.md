@@ -1,4 +1,4 @@
-# 포포와 토토 개발 로그
+# 포포와 토토 Dev Log
 
 ---
 
@@ -21,10 +21,9 @@
 - 네브바 5탭으로 확장 (홈 / 피드 / 검색 / 내피드 / 프로필)
 
 ### 버그 수정 (코드 리뷰 반영)
-- 검색 clear 버튼 즉시 반영 (`onChanged`에 setState 추가)
+- 검색 clear 버튼 즉시 반영
 - `markAllRead` await + 로컬 상태 즉시 갱신
-- `_originals` 폴더 앱 번들 제외 (assets 밖으로 이동)
-- `record_service.dart` use_null_aware_elements lint 수정
+- `_originals` 폴더 앱 번들 제외
 - `force_update_service.dart` storeUrl 빈 값 탈출 불가 버그 수정
 
 ### DB 마이그레이션
