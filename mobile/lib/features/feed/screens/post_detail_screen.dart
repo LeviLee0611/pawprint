@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../models/post_model.dart';
 import '../services/post_service.dart';
 import '../widgets/report_bottom_sheet.dart';
+import 'edit_post_screen.dart';
 
 class PostDetailScreen extends StatefulWidget {
   final Post post;
@@ -207,17 +208,55 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: isMyPost
-                    ? ListTile(
-                        leading: const Icon(Icons.delete_outline,
-                            color: Colors.red),
-                        title: const Text('삭제',
-                            style: TextStyle(
-                                color: Colors.red,
-                                fontWeight: FontWeight.w600)),
-                        onTap: () {
-                          Navigator.pop(context);
-                          _deletePost();
-                        },
+                    ? Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ListTile(
+                            leading: const Icon(Icons.edit_outlined,
+                                color: AppColors.primary),
+                            title: const Text('수정',
+                                style: TextStyle(
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w600)),
+                            onTap: () async {
+                              Navigator.pop(context);
+                              final updated =
+                                  await Navigator.push<Post>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      EditPostScreen(post: _post),
+                                ),
+                              );
+                              if (updated != null && mounted) {
+                                setState(() => _post = updated.copyWith(
+                                      ownerName: _post.ownerName,
+                                      ownerAvatarUrl:
+                                          _post.ownerAvatarUrl,
+                                      petName: _post.petName,
+                                      petType: _post.petType,
+                                      likesCount: _post.likesCount,
+                                      commentsCount:
+                                          _post.commentsCount,
+                                      isLikedByMe: _post.isLikedByMe,
+                                    ));
+                              }
+                            },
+                          ),
+                          const Divider(height: 1, indent: 16),
+                          ListTile(
+                            leading: const Icon(Icons.delete_outline,
+                                color: Colors.red),
+                            title: const Text('삭제',
+                                style: TextStyle(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.w600)),
+                            onTap: () {
+                              Navigator.pop(context);
+                              _deletePost();
+                            },
+                          ),
+                        ],
                       )
                     : ListTile(
                         leading: const Icon(Icons.flag_outlined,

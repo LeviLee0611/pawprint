@@ -66,6 +66,36 @@ class _PetScreenState extends State<PetScreen> {
                     ),
                     const Divider(height: 1),
                     ListTile(
+                      leading: Icon(
+                        pet.isPublic
+                            ? Icons.lock_open_outlined
+                            : Icons.lock_outline,
+                        color: AppColors.textSecondary,
+                      ),
+                      title: Text(pet.isPublic ? '비공개로 변경' : '공개로 변경'),
+                      subtitle: Text(
+                        pet.isPublic
+                            ? '다른 사람에게 이 아이가 보이지 않아요'
+                            : '다른 사람에게 이 아이가 보여요',
+                        style: const TextStyle(
+                            fontSize: 12, color: AppColors.textHint),
+                      ),
+                      onTap: () async {
+                        Navigator.pop(context);
+                        final messenger = ScaffoldMessenger.of(context);
+                        try {
+                          await _petService.togglePublicity(
+                              pet.id, isPublic: !pet.isPublic);
+                          if (mounted) await _loadPets();
+                        } catch (e) {
+                          messenger.showSnackBar(
+                            SnackBar(content: Text('변경 실패: $e')),
+                          );
+                        }
+                      },
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
                       leading: const Icon(Icons.delete_outline,
                           color: Colors.red),
                       title: const Text('삭제',
@@ -289,6 +319,11 @@ class _PetCard extends StatelessWidget {
                       const SizedBox(width: 6),
                       Text(pet.emoji,
                           style: const TextStyle(fontSize: 17)),
+                      if (!pet.isPublic) ...[
+                        const SizedBox(width: 6),
+                        const Icon(Icons.lock_outline,
+                            size: 14, color: AppColors.textHint),
+                      ],
                       const Spacer(),
                       if (onOptions != null)
                         GestureDetector(

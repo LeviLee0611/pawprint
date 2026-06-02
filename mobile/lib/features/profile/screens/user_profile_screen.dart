@@ -8,6 +8,7 @@ import '../../feed/services/post_service.dart';
 import '../../pet/models/pet_model.dart';
 import '../../pet/services/pet_service.dart';
 import '../../../core/widgets/app_image.dart';
+import '../services/block_service.dart';
 import '../widgets/profile_banner.dart';
 import 'follow_list_screen.dart';
 
@@ -31,12 +32,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   final _followService = FollowService();
   final _postService = PostService();
   final _petService = PetService();
+  final _blockService = BlockService();
 
   List<Post> _posts = [];
   List<Pet> _pets = [];
   int _followers = 0;
   int _following = 0;
   bool _isFollowing = false;
+  bool _isBlocked = false;
   bool _loading = true;
   bool _followLoading = false;
   bool _hasError = false;
@@ -57,6 +60,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         _followService.getFollowCounts(widget.userId),
         _petService.getPetsByUser(widget.userId),
         if (!_isMyProfile) _followService.isFollowing(widget.userId),
+        if (!_isMyProfile) _blockService.isBlocked(widget.userId),
       ]);
       if (!mounted) return;
       final counts = results[1] as Map<String, int>;
@@ -65,13 +69,36 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         _pets = results[2] as List<Pet>;
         _followers = counts['followers'] ?? 0;
         _following = counts['following'] ?? 0;
-        if (!_isMyProfile) _isFollowing = results[3] as bool;
+        if (!_isMyProfile) {
+          _isFollowing = results[3] as bool;
+          _isBlocked = results[4] as bool;
+        }
       });
     } catch (e) {
       debugPrint('UserProfileScreen load error: $e');
       if (mounted) setState(() => _hasError = true);
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _toggleBlock() async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final nowBlocked = await _blockService.toggleBlock(widget.userId);
+      if (!mounted) return;
+      setState(() {
+        _isBlocked = nowBlocked;
+        if (nowBlocked) _isFollowing = false;
+      });
+      messenger.showSnackBar(SnackBar(
+        content: Text(nowBlocked ? '차단했어요' : '차단을 해제했어요'),
+      ));
+      if (nowBlocked && mounted) Navigator.pop(context);
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('요청에 실패했어요')),
+      );
     }
   }
 
@@ -95,6 +122,96 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
+  void _showOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: ListTile(
+                  leading: Icon(
+                    _isBlocked ? Icons.lock_open_outlined : Icons.block_outlined,
+                    color: Colors.red,
+                  ),
+                  title: Text(
+                    _isBlocked ? '차단 해제' : '차단',
+                    style: const TextStyle(
+                        color: Colors.red, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text(
+                    _isBlocked
+                        ? '이 사용자의 게시글이 다시 보여요'
+                        : '이 사용자의 게시글이 피드에서 숨겨져요',
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.textHint),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showBlockConfirm();
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: ListTile(
+                  onTap: () => Navigator.pop(context),
+                  title: const Text('취소',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showBlockConfirm() async {
+    final name = widget.initialName ?? '사용자';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(_isBlocked ? '차단 해제' : '$name 차단'),
+        content: Text(_isBlocked
+            ? '$name님의 차단을 해제하시겠어요?'
+            : '$name님을 차단하면 이 사용자의 게시글이 피드에서 숨겨지고 팔로우 관계가 해제됩니다.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소',
+                style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              _isBlocked ? '해제' : '차단',
+              style: const TextStyle(
+                  color: Colors.red, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) _toggleBlock();
+  }
+
   @override
   Widget build(BuildContext context) {
     final name = widget.initialName ?? '사용자';
@@ -105,6 +222,14 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         title: Text(name,
             style: const TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: false,
+        actions: _isMyProfile
+            ? null
+            : [
+                IconButton(
+                  icon: const Icon(Icons.more_vert),
+                  onPressed: () => _showOptions(context),
+                ),
+              ],
       ),
       body: _loading
           ? const Center(

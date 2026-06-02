@@ -45,6 +45,8 @@ class Record {
         return '그루밍';
       case 'play':
         return '놀이';
+      case 'bath':
+        return '목욕';
       case 'note':
         return '건강 메모';
       case 'photo':
@@ -66,6 +68,8 @@ class Record {
         return '✂️';
       case 'play':
         return '🎾';
+      case 'bath':
+        return '🛁';
       case 'note':
         return '📝';
       case 'photo':

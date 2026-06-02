@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../notification/screens/notification_screen.dart';
 import '../../notification/services/notification_repository.dart';
 import '../../pet/models/pet_model.dart';
+import '../../profile/services/block_service.dart';
 import '../../../core/widgets/app_image.dart';
 import '../../pet/services/pet_service.dart';
 import '../models/post_model.dart';
@@ -29,15 +30,18 @@ class _FeedScreenState extends State<FeedScreen> {
   final _petService = PetService();
   final _followService = FollowService();
   final _notificationRepo = NotificationRepository();
+  final _blockService = BlockService();
 
   List<Post> _posts = [];
   List<Pet> _myPets = [];
   Set<String> _followingIds = {};
+  Set<String> _blockedIds = {};
   _FeedFilter _filter = _FeedFilter.all;
   bool _loading = true;
   bool _hasError = false;
   bool _loadingMore = false;
   bool _hasMore = true;
+  int _rawOffset = 0; // 차단 필터와 무관한 실제 서버 offset
   int _unreadNotifications = 0;
   final Set<String> _togglingLikes = {};
   late final ScrollController _scrollController;
@@ -91,7 +95,9 @@ class _FeedScreenState extends State<FeedScreen> {
         me?.userMetadata?['name'] ??
         '나') as String;
     final myAvatar = me?.userMetadata?['avatar_url'] as String?;
-    return rawPosts.map((post) {
+    return rawPosts
+        .where((post) => !_blockedIds.contains(post.ownerId))
+        .map((post) {
       Post p = post;
       if (post.ownerId == me?.id) {
         p = p.copyWith(ownerName: myName, ownerAvatarUrl: myAvatar);
@@ -110,13 +116,16 @@ class _FeedScreenState extends State<FeedScreen> {
       final results = await Future.wait([
         _petService.getMyPets(),
         _followService.getFollowingIds(),
+        _blockService.getBlockedIds(),
       ]);
       if (!mounted) return;
       final pets = results[0] as List<Pet>;
       final followingIds = results[1] as List<String>;
+      final blockedIds = results[2] as List<String>;
       _cachedPets = pets;
       _myPets = pets;
       _followingIds = followingIds.toSet();
+      _blockedIds = blockedIds.toSet();
 
       await _loadPosts(reset: true);
     } catch (e) {
@@ -128,10 +137,10 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Future<void> _loadPosts({bool reset = false}) async {
-    if (reset) setState(() { _posts = []; _hasMore = true; });
+    if (reset) setState(() { _posts = []; _hasMore = true; _rawOffset = 0; });
     try {
       final rawPosts = await _postService.getPosts(
-        offset: reset ? 0 : _posts.length,
+        offset: reset ? 0 : _rawOffset,
         petType: _filter == _FeedFilter.cat
             ? 'cat'
             : _filter == _FeedFilter.dog
@@ -148,6 +157,7 @@ class _FeedScreenState extends State<FeedScreen> {
         } else {
           _posts.addAll(_enrichPosts(rawPosts));
         }
+        _rawOffset = (reset ? 0 : _rawOffset) + rawPosts.length;
         _hasMore = rawPosts.length >= 20;
       });
     } catch (e) {

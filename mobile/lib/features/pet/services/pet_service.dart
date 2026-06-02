@@ -36,12 +36,19 @@ class PetService {
   }
 
   Future<List<Pet>> getPetsByUser(String userId) async {
-    final data = await _supabase
-        .from('pets')
-        .select()
-        .eq('owner_id', userId)
-        .order('created_at');
+    final myId = _supabase.auth.currentUser?.id;
+    var query = _supabase.from('pets').select().eq('owner_id', userId);
+    // 내 펫이 아닐 때 비공개 펫 제외
+    if (userId != myId) query = query.eq('is_public', true);
+    final data = await query.order('created_at');
     return (data as List).map((e) => Pet.fromJson(e)).toList();
+  }
+
+  Future<void> togglePublicity(String petId, {required bool isPublic}) async {
+    await _supabase
+        .from('pets')
+        .update({'is_public': isPublic})
+        .eq('id', petId);
   }
 
   Future<void> updatePet({

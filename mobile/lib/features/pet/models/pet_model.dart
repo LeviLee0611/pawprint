@@ -7,6 +7,7 @@ class Pet {
   final DateTime? birthday;
   final String? breed;
   final String? profileImageUrl;
+  final bool isPublic;
 
   const Pet({
     required this.id,
@@ -17,6 +18,7 @@ class Pet {
     this.birthday,
     this.breed,
     this.profileImageUrl,
+    this.isPublic = true,
   });
 
   factory Pet.fromJson(Map<String, dynamic> json) => Pet(
@@ -28,6 +30,19 @@ class Pet {
     birthday: json['birth_date'] != null ? DateTime.parse(json['birth_date'] as String) : null,
     breed: json['breed'] as String?,
     profileImageUrl: json['photo_url'] as String?,
+    isPublic: json['is_public'] as bool? ?? true,
+  );
+
+  Pet copyWith({bool? isPublic}) => Pet(
+    id: id,
+    ownerId: ownerId,
+    name: name,
+    type: type,
+    gender: gender,
+    birthday: birthday,
+    breed: breed,
+    profileImageUrl: profileImageUrl,
+    isPublic: isPublic ?? this.isPublic,
   );
 
   String get emoji => type == 'dog' ? '🐶' : '🐱';

@@ -51,6 +51,9 @@ class Post {
   }
 
   Post copyWith({
+    String? content,
+    String? imageUrl,
+    bool clearImage = false,
     int? likesCount,
     int? commentsCount,
     bool? isLikedByMe,
@@ -63,8 +66,8 @@ class Post {
         id: id,
         ownerId: ownerId,
         petId: petId,
-        content: content,
-        imageUrl: imageUrl,
+        content: content ?? this.content,
+        imageUrl: clearImage ? null : imageUrl ?? this.imageUrl,
         likesCount: likesCount ?? this.likesCount,
         commentsCount: commentsCount ?? this.commentsCount,
         isLikedByMe: isLikedByMe ?? this.isLikedByMe,

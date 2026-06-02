@@ -119,3 +119,46 @@ CREATE POLICY "app_config_public_read" ON public.app_config FOR SELECT USING (tr
 -- 점검 모드 활성화
 -- UPDATE public.app_config SET maintenance_mode = true, maintenance_message = '점검 중입니다.' WHERE id = 1;
 -- ──────────────────────────────────────────────────────────
+
+
+-- ──────────────────────────────────────────────────────────
+-- [3] pets.is_public 컬럼
+-- ──────────────────────────────────────────────────────────
+ALTER TABLE public.pets ADD COLUMN is_public BOOLEAN DEFAULT TRUE NOT NULL;
+
+
+-- ──────────────────────────────────────────────────────────
+-- [4] record_type enum에 bath 추가
+-- ──────────────────────────────────────────────────────────
+ALTER TYPE record_type ADD VALUE IF NOT EXISTS 'bath';
+
+
+-- ──────────────────────────────────────────────────────────
+-- [5] blocks 테이블 + block_user RPC
+-- ──────────────────────────────────────────────────────────
+CREATE TABLE public.blocks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  blocker_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  blocked_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  UNIQUE(blocker_id, blocked_id)
+);
+
+ALTER TABLE public.blocks ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "blocks_select_own" ON public.blocks FOR SELECT USING (auth.uid() = blocker_id);
+CREATE POLICY "blocks_insert_own" ON public.blocks FOR INSERT WITH CHECK (auth.uid() = blocker_id);
+CREATE POLICY "blocks_delete_own" ON public.blocks FOR DELETE USING (auth.uid() = blocker_id);
+
+-- 차단 시 팔로우 관계 정리 함수 (SECURITY DEFINER로 RLS 우회)
+CREATE OR REPLACE FUNCTION public.block_user(blocked_user_id UUID)
+RETURNS VOID LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE blocker UUID := auth.uid();
+BEGIN
+  INSERT INTO public.blocks (blocker_id, blocked_id)
+  VALUES (blocker, blocked_user_id)
+  ON CONFLICT DO NOTHING;
+  DELETE FROM public.follows WHERE follower_id = blocker AND following_id = blocked_user_id;
+  DELETE FROM public.follows WHERE follower_id = blocked_user_id AND following_id = blocker;
+END;
+$$;
+-- ──────────────────────────────────────────────────────────

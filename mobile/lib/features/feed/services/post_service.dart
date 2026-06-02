@@ -101,6 +101,61 @@ class PostService {
         .toList();
   }
 
+  Future<Post> updatePost({
+    required String postId,
+    required String content,
+    File? newImageFile,
+    String? existingImageUrl,
+    bool removeImage = false,
+  }) async {
+    String? newImageUrl = existingImageUrl;
+    String? newStoragePath;
+
+    if (newImageFile != null) {
+      final userId = _supabase.auth.currentUser!.id;
+      final ext = newImageFile.path.split('.').last.toLowerCase();
+      newStoragePath = '$userId/${DateTime.now().millisecondsSinceEpoch}.$ext';
+      await _supabase.storage
+          .from('post-images')
+          .upload(newStoragePath, newImageFile);
+      newImageUrl =
+          _supabase.storage.from('post-images').getPublicUrl(newStoragePath);
+    } else if (removeImage && existingImageUrl != null) {
+      newImageUrl = null;
+    }
+
+    try {
+      final data = await _supabase
+          .from('posts')
+          .update({'content': content, 'image_url': newImageUrl})
+          .eq('id', postId)
+          .select(_postSelect)
+          .single();
+
+      // DB 성공 후 기존 이미지 삭제
+      if (newImageFile != null && existingImageUrl != null) {
+        final oldPath = StoragePathUtil.fromUrl(existingImageUrl, 'post-images');
+        if (oldPath != null) {
+          try { await _supabase.storage.from('post-images').remove([oldPath]); } catch (_) {}
+        }
+      } else if (removeImage && existingImageUrl != null) {
+        final path = StoragePathUtil.fromUrl(existingImageUrl, 'post-images');
+        if (path != null) {
+          try { await _supabase.storage.from('post-images').remove([path]); } catch (_) {}
+        }
+      }
+
+      return Post.fromJson(data);
+    } catch (e) {
+      if (newStoragePath != null) {
+        try {
+          await _supabase.storage.from('post-images').remove([newStoragePath]);
+        } catch (_) {}
+      }
+      rethrow;
+    }
+  }
+
   Future<Post?> getPostById(String postId) async {
     final myId = _supabase.auth.currentUser?.id;
     final data = await _supabase

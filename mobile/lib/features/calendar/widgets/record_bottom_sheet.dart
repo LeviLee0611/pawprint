@@ -64,6 +64,14 @@ class RecordBottomSheet extends StatelessWidget {
               onTap: () => Navigator.pop(context, 'weight'),
             ),
             _RecordOption(
+              icon: Icons.water_drop_rounded,
+              label: '목욕',
+              description: '목욕 기록을 남겨요',
+              color: const Color(0xFF42A5F5),
+              bgColor: const Color(0xFFE3F2FD),
+              onTap: () => Navigator.pop(context, 'bath'),
+            ),
+            _RecordOption(
               icon: Icons.favorite_rounded,
               label: '건강 메모',
               description: '특이사항이나 메모를 남겨요',
