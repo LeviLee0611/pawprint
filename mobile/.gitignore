@@ -1,6 +1,10 @@
 # Secrets
 lib/config.dart
 
+# Dev tools
+_originals/
+remove_bg.py
+
 # Miscellaneous
 *.class
 *.log
