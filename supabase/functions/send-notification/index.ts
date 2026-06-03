@@ -115,24 +115,42 @@ serve(async (req) => {
       const record = payload.record
       const notifType: string = record.type // 'like' | 'comment' | 'follow'
 
-      const settingKey: Record<string, string> = {
-        like: 'like_enabled',
-        comment: 'comment_enabled',
-        follow: 'follow_enabled',
-      }
-      if (!settingKey[notifType]) {
+      if (!['like', 'comment', 'follow'].includes(notifType)) {
         return ok({ skipped: 'unknown type' })
       }
 
       // 알림 설정 확인
       const { data: settings } = await supabase
         .from('notification_settings')
-        .select(settingKey[notifType])
+        .select('like_setting, comment_setting, follow_enabled')
         .eq('user_id', record.recipient_id)
         .maybeSingle()
 
-      const isEnabled: boolean = settings?.[settingKey[notifType]] ?? true
-      if (!isEnabled) return ok({ skipped: 'disabled by user' })
+      // 팔로우 알림 — boolean
+      if (notifType === 'follow') {
+        const enabled: boolean = settings?.follow_enabled ?? true
+        if (!enabled) return ok({ skipped: 'disabled by user' })
+      }
+
+      // 좋아요/댓글 — 3단계 (everyone | following_only | off)
+      if (notifType === 'like' || notifType === 'comment') {
+        const settingVal: string = notifType === 'like'
+          ? (settings?.like_setting ?? 'everyone')
+          : (settings?.comment_setting ?? 'everyone')
+
+        if (settingVal === 'off') return ok({ skipped: 'disabled by user' })
+
+        if (settingVal === 'following_only') {
+          // 수신자가 발신자를 팔로우하는지 확인
+          const { data: followCheck } = await supabase
+            .from('follows')
+            .select('id')
+            .eq('follower_id', record.recipient_id)
+            .eq('following_id', record.actor_id)
+            .maybeSingle()
+          if (!followCheck) return ok({ skipped: 'actor not followed by recipient' })
+        }
+      }
 
       // FCM 토큰 조회
       const { data: tokenRow } = await supabase

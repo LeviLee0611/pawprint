@@ -64,8 +64,7 @@ class _NotificationSettingsScreenState
               padding: EdgeInsets.only(right: 16),
               child: Center(
                 child: SizedBox(
-                  width: 18,
-                  height: 18,
+                  width: 18, height: 18,
                   child: CircularProgressIndicator(
                       strokeWidth: 2, color: AppColors.primary),
                 ),
@@ -78,26 +77,33 @@ class _NotificationSettingsScreenState
               child: CircularProgressIndicator(color: AppColors.primary))
           : ListView(
               children: [
-                const _SectionHeader(title: '알림 종류'),
-                _SettingsTile(
+                // ── 좋아요 ──────────────────────────────
+                _SectionHeader(title: '좋아요'),
+                _LevelTile(
                   icon: Icons.favorite_rounded,
                   iconColor: const Color(0xFFE53935),
                   title: '좋아요 알림',
                   subtitle: '내 게시글에 좋아요를 받으면 알려드려요',
-                  value: _settings.likeEnabled,
+                  value: _settings.likeSetting,
                   onChanged: (v) =>
-                      _update(_settings.copyWith(likeEnabled: v)),
+                      _update(_settings.copyWith(likeSetting: v)),
                 ),
-                _SettingsTile(
+
+                // ── 댓글 ──────────────────────────────
+                _SectionHeader(title: '댓글'),
+                _LevelTile(
                   icon: Icons.chat_bubble_rounded,
                   iconColor: AppColors.primary,
                   title: '댓글 알림',
                   subtitle: '내 게시글에 댓글이 달리면 알려드려요',
-                  value: _settings.commentEnabled,
+                  value: _settings.commentSetting,
                   onChanged: (v) =>
-                      _update(_settings.copyWith(commentEnabled: v)),
+                      _update(_settings.copyWith(commentSetting: v)),
                 ),
-                _SettingsTile(
+
+                // ── 팔로우 / 새 게시글 ─────────────────
+                _SectionHeader(title: '팔로우 & 새 게시글'),
+                _SwitchTile(
                   icon: Icons.person_add_rounded,
                   iconColor: AppColors.primary,
                   title: '팔로우 알림',
@@ -106,7 +112,7 @@ class _NotificationSettingsScreenState
                   onChanged: (v) =>
                       _update(_settings.copyWith(followEnabled: v)),
                 ),
-                _SettingsTile(
+                _SwitchTile(
                   icon: Icons.feed_rounded,
                   iconColor: const Color(0xFF43A047),
                   title: '새 게시글 알림',
@@ -121,6 +127,8 @@ class _NotificationSettingsScreenState
   }
 }
 
+// ── 섹션 헤더 ──────────────────────────────────────────────
+
 class _SectionHeader extends StatelessWidget {
   final String title;
   const _SectionHeader({required this.title});
@@ -133,7 +141,7 @@ class _SectionHeader extends StatelessWidget {
         title,
         style: const TextStyle(
           fontSize: 12,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           color: AppColors.textHint,
           letterSpacing: 0.5,
         ),
@@ -142,7 +150,116 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-class _SettingsTile extends StatelessWidget {
+// ── 3단계 레벨 타일 (좋아요 / 댓글) ────────────────────────
+
+class _LevelTile extends StatelessWidget {
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
+  final NotifLevel value;
+  final ValueChanged<NotifLevel> onChanged;
+
+  const _LevelTile({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 36, height: 36,
+                  decoration: BoxDecoration(
+                    color: iconColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Icon(icon, color: iconColor, size: 19),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title,
+                          style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary)),
+                      Text(subtitle,
+                          style: const TextStyle(
+                              fontSize: 12, color: AppColors.textSecondary)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: NotifLevel.values.map((level) {
+                final selected = value == level;
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    child: GestureDetector(
+                      onTap: () => onChanged(level),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? AppColors.primary
+                              : AppColors.background,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: selected
+                                ? AppColors.primary
+                                : AppColors.brownLight,
+                          ),
+                        ),
+                        child: Text(
+                          level.label,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                            color: selected
+                                ? Colors.white
+                                : AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── 2단계 스위치 타일 (팔로우 / 새 게시글) ─────────────────
+
+class _SwitchTile extends StatelessWidget {
   final IconData icon;
   final Color iconColor;
   final String title;
@@ -150,7 +267,7 @@ class _SettingsTile extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
 
-  const _SettingsTile({
+  const _SwitchTile({
     required this.icon,
     required this.iconColor,
     required this.title,
@@ -163,25 +280,20 @@ class _SettingsTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return SwitchListTile(
       secondary: Container(
-        width: 38,
-        height: 38,
+        width: 38, height: 38,
         decoration: BoxDecoration(
           color: iconColor.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(icon, color: iconColor, size: 20),
       ),
-      title: Text(
-        title,
-        style: const TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary),
-      ),
-      subtitle: Text(
-        subtitle,
-        style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
-      ),
+      title: Text(title,
+          style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary)),
+      subtitle: Text(subtitle,
+          style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary)),
       value: value,
       onChanged: onChanged,
       activeThumbColor: AppColors.primary,
