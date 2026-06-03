@@ -134,6 +134,41 @@ ALTER TYPE record_type ADD VALUE IF NOT EXISTS 'bath';
 
 
 -- ──────────────────────────────────────────────────────────
+-- [6] notification_settings 테이블 (알림 수신 설정 per 유저)
+-- ──────────────────────────────────────────────────────────
+CREATE TABLE public.notification_settings (
+  user_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  like_enabled BOOLEAN DEFAULT TRUE NOT NULL,
+  comment_enabled BOOLEAN DEFAULT TRUE NOT NULL,
+  follow_enabled BOOLEAN DEFAULT TRUE NOT NULL,
+  new_post_enabled BOOLEAN DEFAULT TRUE NOT NULL,
+  updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+);
+
+ALTER TABLE public.notification_settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "notification_settings_own" ON public.notification_settings
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+-- ──────────────────────────────────────────────────────────
+-- [7] send-notification Edge Function 웹훅 설정 방법
+-- ──────────────────────────────────────────────────────────
+-- Supabase 대시보드 → Database → Webhooks → Create Webhook
+--
+-- 웹훅 1: 좋아요/댓글/팔로우 알림
+--   Name: notify_on_notification_insert
+--   Table: public.notifications
+--   Events: INSERT
+--   URL: https://<project-ref>.supabase.co/functions/v1/send-notification
+--   HTTP Headers: Authorization: Bearer <service_role_key>
+--
+-- 웹훅 2 (새 게시글 알림)는 Flutter 앱에서 게시글 등록 후
+-- post_service.dart의 addPost()에서 직접 Edge Function 호출
+-- (아래 Flutter 코드 참고)
+-- ──────────────────────────────────────────────────────────
+
+
+-- ──────────────────────────────────────────────────────────
 -- [5] blocks 테이블 + block_user RPC
 -- ──────────────────────────────────────────────────────────
 CREATE TABLE public.blocks (

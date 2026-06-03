@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/image_util.dart';
 
 /// 내 피드 / 유저 프로필 공통 헤더 배너
 class ProfileBanner extends StatelessWidget {
@@ -55,8 +56,10 @@ class ProfileBanner extends StatelessWidget {
                 child: CircleAvatar(
                   radius: 40,
                   backgroundColor: AppColors.primaryLight,
-                  backgroundImage:
-                      avatarUrl != null ? NetworkImage(avatarUrl!) : null,
+                  backgroundImage: avatarUrl != null
+                      ? NetworkImage(toTransformUrl(avatarUrl,
+                          width: 160, height: 160, quality: 85, resize: 'cover'))
+                      : null,
                   child: avatarUrl == null
                       ? ClipOval(
                           child: Image.asset(

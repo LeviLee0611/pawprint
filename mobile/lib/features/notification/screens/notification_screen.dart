@@ -6,6 +6,7 @@ import '../../feed/services/post_service.dart';
 import '../../profile/screens/user_profile_screen.dart';
 import '../models/app_notification.dart';
 import '../services/notification_repository.dart';
+import 'notification_settings_screen.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -101,6 +102,16 @@ class _NotificationScreenState extends State<NotificationScreen> {
       appBar: AppBar(
         title: const Text('알림'),
         backgroundColor: AppColors.background,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const NotificationSettingsScreen()),
+            ),
+          ),
+        ],
       ),
       body: _loading
           ? const Center(

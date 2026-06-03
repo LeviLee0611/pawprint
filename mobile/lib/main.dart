@@ -102,8 +102,43 @@ class _PawprintAppState extends State<PawprintApp> {
   }
 }
 
-class AuthGate extends StatelessWidget {
+class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  String? _syncedUserId;
+
+  Future<void> _syncProfile(String userId) async {
+    if (_syncedUserId == userId) return; // 같은 유저 중복 실행 방지
+    _syncedUserId = userId;
+
+    final supabase = Supabase.instance.client;
+    final meta = supabase.auth.currentUser?.userMetadata;
+    final socialAvatar = meta?['avatar_url'] as String?;
+    final socialName = (meta?['full_name'] ?? meta?['name']) as String?;
+    if (socialAvatar == null && socialName == null) return;
+
+    try {
+      final data = await supabase
+          .from('profiles')
+          .select('avatar_url, display_name')
+          .eq('id', userId)
+          .maybeSingle();
+
+      final updates = <String, dynamic>{'id': userId};
+      if (((data?['avatar_url'] as String?) ?? '').isEmpty && socialAvatar != null) {
+        updates['avatar_url'] = socialAvatar;
+      }
+      if (((data?['display_name'] as String?) ?? '').isEmpty && socialName != null) {
+        updates['display_name'] = socialName;
+      }
+      if (updates.length > 1) await supabase.from('profiles').upsert(updates);
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -116,9 +151,12 @@ class AuthGate extends StatelessWidget {
           );
         }
         final session = Supabase.instance.client.auth.currentSession;
-        if (session == null) return const LoginScreen();
-        // 로그인 상태면 FCM 토큰 초기화
+        if (session == null) {
+          _syncedUserId = null; // 로그아웃 시 초기화
+          return const LoginScreen();
+        }
         NotificationService.init();
+        _syncProfile(session.user.id);
         return const _PetGate();
       },
     );

@@ -41,7 +41,7 @@ class AppAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (url == null || url!.isEmpty) return _fallback();
-    final transformUrl = toTransformUrl(url, width: 120, quality: 85);
+    final transformUrl = toTransformUrl(url, width: 120, height: 120, quality: 85, resize: 'cover');
     return CachedNetworkImage(
       imageUrl: transformUrl,
       imageBuilder: (_, imageProvider) => CircleAvatar(

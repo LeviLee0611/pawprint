@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../notification/screens/notification_screen.dart';
@@ -90,18 +91,10 @@ class _FeedScreenState extends State<FeedScreen> {
 
   List<Post> _enrichPosts(List<Post> rawPosts) {
     final petMap = {for (final p in _cachedPets) p.id: p};
-    final me = Supabase.instance.client.auth.currentUser;
-    final myName = (me?.userMetadata?['full_name'] ??
-        me?.userMetadata?['name'] ??
-        '나') as String;
-    final myAvatar = me?.userMetadata?['avatar_url'] as String?;
     return rawPosts
         .where((post) => !_blockedIds.contains(post.ownerId))
         .map((post) {
       Post p = post;
-      if (post.ownerId == me?.id) {
-        p = p.copyWith(ownerName: myName, ownerAvatarUrl: myAvatar);
-      }
       if (p.petId != null && petMap.containsKey(p.petId)) {
         final pet = petMap[p.petId!]!;
         p = p.copyWith(petName: pet.name, petType: pet.type);
@@ -207,20 +200,20 @@ class _FeedScreenState extends State<FeedScreen> {
             elevation: 0,
             title: const Text('댕냥스토리'),
             actions: [
-              Badge(
-                isLabelVisible: _unreadNotifications > 0,
-                label: Text('$_unreadNotifications'),
-                child: IconButton(
-                  icon: const Icon(Icons.notifications_outlined),
-                  onPressed: () async {
-                    await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const NotificationScreen()),
-                    );
-                    _loadUnreadCount();
-                  },
+              IconButton(
+                icon: Badge(
+                  isLabelVisible: _unreadNotifications > 0,
+                  label: Text('$_unreadNotifications'),
+                  child: const Icon(Icons.notifications_outlined),
                 ),
+                onPressed: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const NotificationScreen()),
+                  );
+                  _loadUnreadCount();
+                },
               ),
             ],
             bottom: PreferredSize(
@@ -485,15 +478,16 @@ class _ThreadPost extends StatelessWidget {
                           style: const TextStyle(
                               fontSize: 12,
                               color: AppColors.textHint)),
-                      if (!isMyPost) ...[
-                        const SizedBox(width: 4),
-                        GestureDetector(
-                          onTap: () => showReportSheet(context,
-                              targetType: 'post', targetId: post.id),
-                          child: const Icon(Icons.more_vert,
-                              size: 18, color: AppColors.textHint),
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () => _showPostOptions(
+                          context,
+                          post: post,
+                          isMyPost: isMyPost,
                         ),
-                      ],
+                        child: const Icon(Icons.more_vert,
+                            size: 18, color: AppColors.textHint),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 5),
@@ -551,6 +545,85 @@ class _ThreadPost extends StatelessWidget {
       ),
     );
   }
+}
+
+void _showPostOptions(
+  BuildContext context, {
+  required Post post,
+  required bool isMyPost,
+}) {
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.transparent,
+    builder: (_) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.share_outlined,
+                        color: AppColors.primary),
+                    title: const Text('공유하기',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    onTap: () {
+                      Navigator.pop(context);
+                      final ownerName = post.ownerName ?? '누군가';
+                      final content = post.content.length > 80
+                          ? '${post.content.substring(0, 80)}…'
+                          : post.content;
+                      Share.share(
+                        '[$ownerName] $content\n\n댕냥스토리에서 보기 🐾',
+                      );
+                    },
+                  ),
+                  if (!isMyPost) ...[
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.flag_outlined,
+                          color: Colors.red),
+                      title: const Text('신고하기',
+                          style: TextStyle(
+                              color: Colors.red,
+                              fontWeight: FontWeight.w600)),
+                      onTap: () {
+                        Navigator.pop(context);
+                        showReportSheet(context,
+                            targetType: 'post', targetId: post.id);
+                      },
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: ListTile(
+                onTap: () => Navigator.pop(context),
+                title: const Text('취소',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _ActionBtn extends StatelessWidget {

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_theme.dart';
 import '../services/profile_service.dart';
 
@@ -43,6 +44,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (picked != null) setState(() => _newPhoto = File(picked.path));
   }
 
+  Future<bool> _isNameTaken(String name) async {
+    final myId = Supabase.instance.client.auth.currentUser!.id;
+    final data = await Supabase.instance.client
+        .from('profiles')
+        .select('id')
+        .eq('display_name', name)
+        .neq('id', myId)
+        .maybeSingle();
+    return data != null;
+  }
+
   Future<void> _save() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
@@ -51,10 +63,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       );
       return;
     }
+    if (name == widget.currentName && _newPhoto == null) {
+      Navigator.pop(context, false);
+      return;
+    }
     setState(() => _loading = true);
     try {
-      await _profileService.updateProfile(
-          name: name, photoFile: _newPhoto);
+      if (name != widget.currentName && await _isNameTaken(name)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('이미 사용 중인 닉네임이에요')),
+          );
+        }
+        return;
+      }
+      await _profileService.updateProfile(name: name, photoFile: _newPhoto);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('프로필이 업데이트됐어요 🐾')),
@@ -64,8 +87,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('오류: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('오류: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {

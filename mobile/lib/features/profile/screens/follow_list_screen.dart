@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/image_util.dart';
 import '../../feed/services/follow_service.dart';
 import 'user_profile_screen.dart';
 
@@ -96,7 +97,8 @@ class _FollowListScreenState extends State<FollowListScreen> {
                         radius: 22,
                         backgroundColor: AppColors.primaryLight,
                         backgroundImage: avatarUrl != null
-                            ? NetworkImage(avatarUrl)
+                            ? NetworkImage(toTransformUrl(avatarUrl,
+                                width: 88, height: 88, quality: 85, resize: 'cover'))
                             : null,
                         child: avatarUrl == null
                             ? ClipOval(

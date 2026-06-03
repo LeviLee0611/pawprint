@@ -22,6 +22,8 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   List<Post> _posts = [];
   int _followers = 0;
   int _following = 0;
+  String? _avatarUrl;
+  String _displayName = '';
   bool _loading = true;
   bool _hasError = false;
 
@@ -32,19 +34,23 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   }
 
   Future<void> _loadData() async {
-    final myId =
-        Supabase.instance.client.auth.currentUser?.id ?? '';
+    final supabase = Supabase.instance.client;
+    final myId = supabase.auth.currentUser?.id ?? '';
     try {
       final results = await Future.wait([
         _postService.getMyPosts(),
         _followService.getFollowCounts(myId),
+        supabase.from('profiles').select('display_name, avatar_url').eq('id', myId).single(),
       ]);
       if (!mounted) return;
       final counts = results[1] as Map<String, int>;
+      final profile = results[2] as Map<String, dynamic>;
       setState(() {
         _posts = results[0] as List<Post>;
         _followers = counts['followers'] ?? 0;
         _following = counts['following'] ?? 0;
+        _avatarUrl = profile['avatar_url'] as String?;
+        _displayName = profile['display_name'] as String? ?? '';
       });
     } catch (e) {
       debugPrint('MyProfileScreen load error: $e');
@@ -56,17 +62,11 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = Supabase.instance.client.auth.currentUser;
-    final avatarUrl = user?.userMetadata?['avatar_url'] as String?;
-    final name = (user?.userMetadata?['full_name'] ??
-            user?.userMetadata?['name'] ??
-            '이름 없음') as String;
-
     return Scaffold(
       backgroundColor: const Color(0xFFFFFAF5),
       appBar: AppBar(
         backgroundColor: const Color(0xFFFFF0DC),
-        title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(_displayName, style: const TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: false,
       ),
       body: _loading
@@ -80,7 +80,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
               child: CustomScrollView(
                 slivers: [
                   SliverToBoxAdapter(
-                    child: _buildHeader(avatarUrl, name),
+                    child: _buildHeader(_avatarUrl, _displayName),
                   ),
                   _posts.isEmpty
                       ? SliverFillRemaining(
@@ -277,18 +277,21 @@ class _StatColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Text(value,
-            style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary)),
-        const SizedBox(height: 2),
-        Text(label,
-            style: const TextStyle(
-                fontSize: 12, color: AppColors.textSecondary)),
-      ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Column(
+        children: [
+          Text(value,
+              style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.textPrimary)),
+          const SizedBox(height: 2),
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 12, color: AppColors.textSecondary)),
+        ],
+      ),
     );
   }
 }

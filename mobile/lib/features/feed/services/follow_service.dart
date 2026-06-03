@@ -39,33 +39,39 @@ class FollowService {
 
   /// 팔로워 목록 (나를 팔로우하는 유저)
   Future<List<Map<String, dynamic>>> getFollowers(String userId) async {
-    final data = await _supabase
+    final follows = await _supabase
         .from('follows')
-        .select('follower_id, profiles:follower_id(display_name, avatar_url)')
+        .select('follower_id')
         .eq('following_id', userId);
-    return (data as List).map((e) {
-      final profile = e['profiles'] as Map<String, dynamic>?;
-      return {
-        'id': e['follower_id'] as String,
-        'display_name': profile?['display_name'] as String? ?? '사용자',
-        'avatar_url': profile?['avatar_url'] as String?,
-      };
+    final ids = (follows as List).map((e) => e['follower_id'] as String).toList();
+    if (ids.isEmpty) return [];
+    final profiles = await _supabase
+        .from('profiles')
+        .select('id, display_name, avatar_url')
+        .inFilter('id', ids);
+    return (profiles as List).map((e) => {
+      'id': e['id'] as String,
+      'display_name': e['display_name'] as String? ?? '사용자',
+      'avatar_url': e['avatar_url'] as String?,
     }).toList();
   }
 
   /// 팔로잉 목록 (내가 팔로우하는 유저)
   Future<List<Map<String, dynamic>>> getFollowing(String userId) async {
-    final data = await _supabase
+    final follows = await _supabase
         .from('follows')
-        .select('following_id, profiles:following_id(display_name, avatar_url)')
+        .select('following_id')
         .eq('follower_id', userId);
-    return (data as List).map((e) {
-      final profile = e['profiles'] as Map<String, dynamic>?;
-      return {
-        'id': e['following_id'] as String,
-        'display_name': profile?['display_name'] as String? ?? '사용자',
-        'avatar_url': profile?['avatar_url'] as String?,
-      };
+    final ids = (follows as List).map((e) => e['following_id'] as String).toList();
+    if (ids.isEmpty) return [];
+    final profiles = await _supabase
+        .from('profiles')
+        .select('id, display_name, avatar_url')
+        .inFilter('id', ids);
+    return (profiles as List).map((e) => {
+      'id': e['id'] as String,
+      'display_name': e['display_name'] as String? ?? '사용자',
+      'avatar_url': e['avatar_url'] as String?,
     }).toList();
   }
 

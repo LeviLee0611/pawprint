@@ -1,9 +1,16 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("com.google.gms.google-services")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+val keyPropertiesFile = rootProject.file("key.properties")
+val hasKeyProperties = keyPropertiesFile.exists()
+val keyProperties = Properties()
+if (hasKeyProperties) keyProperties.load(FileInputStream(keyPropertiesFile))
 
 android {
     namespace = "com.pawprint.mobile"
@@ -15,11 +22,19 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    if (hasKeyProperties) {
+        signingConfigs {
+            create("release") {
+                keyAlias = keyProperties["keyAlias"] as String
+                keyPassword = keyProperties["keyPassword"] as String
+                storeFile = file(keyProperties["storeFile"] as String)
+                storePassword = keyProperties["storePassword"] as String
+            }
+        }
+    }
+
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.pawprint.mobile"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -28,9 +43,12 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasKeyProperties) {
+                signingConfigs.getByName("release")
+            } else {
+                // key.properties 없으면 debug 키 사용 (CI/다른 환경에서 빌드 안 깨짐)
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/image_util.dart';
 import '../../../features/auth/services/auth_service.dart';
 import '../../../features/calendar/screens/records_history_screen.dart';
 import '../../../features/calendar/services/record_service.dart';
@@ -329,8 +330,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           CircleAvatar(
             radius: 36,
             backgroundColor: AppColors.primaryLight,
-            backgroundImage:
-                avatarUrl != null ? NetworkImage(avatarUrl) : null,
+            backgroundImage: avatarUrl != null
+                ? NetworkImage(toTransformUrl(avatarUrl,
+                    width: 144, height: 144, quality: 85, resize: 'cover'))
+                : null,
             child: avatarUrl == null
                 ? ClipOval(
                     child: Image.asset('assets/images/포포얼굴사진.png',

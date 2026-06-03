@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/utils/storage_path_util.dart';
@@ -209,7 +210,10 @@ class PostService {
           })
           .select(_postSelect)
           .single();
-      return Post.fromJson(data);
+      final post = Post.fromJson(data);
+      // 팔로워에게 새 게시글 알림 전송 (fire-and-forget)
+      _notifyNewPost(userId, post.ownerName);
+      return post;
     } catch (e) {
       if (storagePath != null) {
         try {
@@ -220,6 +224,23 @@ class PostService {
       }
       rethrow;
     }
+  }
+
+  void _notifyNewPost(String ownerId, String? ownerName) {
+    unawaited(_sendNewPostNotification(ownerId, ownerName));
+  }
+
+  Future<void> _sendNewPostNotification(String ownerId, String? ownerName) async {
+    try {
+      await _supabase.functions.invoke(
+        'send-notification',
+        body: {
+          'trigger_type': 'new_post',
+          'post_owner_id': ownerId,
+          'owner_name': ownerName ?? '누군가',
+        },
+      );
+    } catch (_) {}
   }
 
   /// imageUrl을 받아서 Storage 파일도 같이 삭제
