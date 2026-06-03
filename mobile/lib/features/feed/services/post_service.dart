@@ -9,6 +9,9 @@ class PostService {
 
   static const _postSelect =
       '*, profiles:owner_id(display_name, avatar_url), pets:pet_id(name, type)';
+  // petType 필터 시 !inner JOIN → pet 없거나 타입 불일치 게시글 서버에서 제외
+  static const _postSelectPetFilter =
+      '*, profiles:owner_id(display_name, avatar_url), pets!inner:pet_id(name, type)';
   static const _commentSelect =
       '*, profiles:owner_id(display_name, avatar_url)';
 
@@ -21,7 +24,8 @@ class PostService {
   }) async {
     final userId = _supabase.auth.currentUser?.id;
 
-    var query = _supabase.from('posts').select(_postSelect);
+    final select = petType != null ? _postSelectPetFilter : _postSelect;
+    var query = _supabase.from('posts').select(select);
 
     // 팔로잉 필터: 내 글 + 팔로우한 사람 글
     if (followingIds != null) {
@@ -29,7 +33,7 @@ class PostService {
       query = query.inFilter('owner_id', ids);
     }
 
-    // 펫 타입 필터: pets 테이블 join 기준
+    // 펫 타입 필터: !inner JOIN으로 서버에서 완전히 제외
     if (petType != null) {
       query = query.eq('pets.type', petType);
     }
