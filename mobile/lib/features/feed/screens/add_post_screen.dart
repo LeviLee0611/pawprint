@@ -7,7 +7,15 @@ import '../services/post_service.dart';
 
 class AddPostScreen extends StatefulWidget {
   final List<Pet> pets;
-  const AddPostScreen({super.key, required this.pets});
+  final File? initialImage;
+  final Pet? initialPet;
+
+  const AddPostScreen({
+    super.key,
+    required this.pets,
+    this.initialImage,
+    this.initialPet,
+  });
 
   @override
   State<AddPostScreen> createState() => _AddPostScreenState();
@@ -24,7 +32,8 @@ class _AddPostScreenState extends State<AddPostScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.pets.isNotEmpty) _selectedPet = widget.pets.first;
+    _selectedPet = widget.initialPet ?? (widget.pets.isNotEmpty ? widget.pets.first : null);
+    _imageFile = widget.initialImage;
   }
 
   @override

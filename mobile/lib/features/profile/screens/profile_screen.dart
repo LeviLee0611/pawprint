@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/image_util.dart';
+import '../../../features/admin/screens/admin_screen.dart';
 import '../../../features/auth/services/auth_service.dart';
 import '../../../features/calendar/screens/records_history_screen.dart';
 import '../../../features/calendar/services/record_service.dart';
@@ -285,6 +286,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
             trailing:
                 const Text('1.0.0', style: TextStyle(color: AppColors.textHint)),
           ),
+
+          // ── 관리자 ────────────────────────────────
+          if (user?.id == '675dccab-0660-4f6f-852b-5807c4d07f63') ...[
+            _sectionLabel('관리자'),
+            _navTile(
+              icon: Icons.admin_panel_settings_outlined,
+              label: '신고 처리',
+              iconColor: Colors.red,
+              onTap: () => Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const AdminScreen())),
+            ),
+          ],
 
           // ── 계정 ──────────────────────────────────
           _sectionLabel('계정'),

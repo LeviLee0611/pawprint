@@ -151,7 +151,16 @@ CREATE POLICY "notification_settings_own" ON public.notification_settings
   WITH CHECK (auth.uid() = user_id);
 
 -- ──────────────────────────────────────────────────────────
--- [7] send-notification Edge Function 웹훅 설정 방법
+-- [7] reports 테이블 status / handled_at 컬럼 추가
+-- ──────────────────────────────────────────────────────────
+ALTER TABLE public.reports
+  ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending','resolved','dismissed')),
+  ADD COLUMN IF NOT EXISTS handled_at TIMESTAMPTZ;
+
+
+-- ──────────────────────────────────────────────────────────
+-- [8] send-notification Edge Function 웹훅 설정 방법
 -- ──────────────────────────────────────────────────────────
 -- Supabase 대시보드 → Database → Webhooks → Create Webhook
 --

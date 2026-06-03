@@ -5,7 +5,9 @@ import 'package:intl/intl.dart';
 import '../services/record_service.dart';
 import '../services/reminder_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../feed/screens/add_post_screen.dart';
 import '../../pet/models/pet_model.dart';
+import '../../pet/services/pet_service.dart';
 
 class AddRecordScreen extends StatefulWidget {
   final DateTime date;
@@ -167,6 +169,49 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
       }
     }
 
+    if (!mounted) return;
+    // 사진 기록이면 피드 공유 다이얼로그 표시
+    if (_isPhoto && _photoFile != null) {
+      final share = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('피드에도 공유할까요? 🐾'),
+          content: const Text('저장된 사진을 피드에 올리면\n다른 반려인들과 나눌 수 있어요.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('건너뛰기',
+                  style: TextStyle(color: AppColors.textSecondary)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('공유하기',
+                  style: TextStyle(
+                      color: AppColors.primary, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      if (share == true) {
+        final pets = await PetService().getMyPets();
+        if (!mounted) return;
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AddPostScreen(
+              pets: pets,
+              initialImage: _photoFile,
+              initialPet: pets.firstWhere(
+                (p) => p.id == widget.pet.id,
+                orElse: () => pets.isNotEmpty ? pets.first : widget.pet,
+              ),
+            ),
+          ),
+        );
+      }
+    }
     if (!mounted) return;
     Navigator.pop(context, true);
   }
