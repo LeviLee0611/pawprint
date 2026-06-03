@@ -288,7 +288,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
 
           // ── 관리자 ────────────────────────────────
-          if (user?.id == '675dccab-0660-4f6f-852b-5807c4d07f63') ...[
+          if (user?.id == '675dccab-0660-4f6f-852b-5807c4d07f63' ||
+              user?.id == '5eb6c0ec-1220-4af5-ab10-47330d23dc35') ...[
             _sectionLabel('관리자'),
             _navTile(
               icon: Icons.admin_panel_settings_outlined,
