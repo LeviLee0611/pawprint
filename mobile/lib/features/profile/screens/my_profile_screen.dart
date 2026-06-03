@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../feed/models/post_model.dart';
 import '../../feed/screens/post_detail_screen.dart';
 import '../../feed/services/follow_service.dart';
@@ -70,8 +71,12 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
         centerTitle: false,
       ),
       body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.primary))
+          ? const SingleChildScrollView(
+              child: Column(children: [
+                ProfileBannerSkeleton(),
+                ProfileGridSkeleton(),
+              ]),
+            )
           : _hasError
               ? _buildError()
               : RefreshIndicator(

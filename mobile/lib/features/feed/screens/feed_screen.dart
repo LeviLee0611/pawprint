@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../notification/screens/notification_screen.dart';
 import '../../notification/services/notification_repository.dart';
 import '../../pet/models/pet_model.dart';
@@ -224,8 +225,7 @@ class _FeedScreenState extends State<FeedScreen> {
         ),
       ),
       body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.primary))
+          ? const SingleChildScrollView(child: FeedSkeleton())
           : _hasError
               ? _buildError()
               : RefreshIndicator(

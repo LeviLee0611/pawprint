@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../../core/widgets/app_image.dart';
 import '../../feed/models/post_model.dart';
 import '../../feed/screens/post_detail_screen.dart';
@@ -179,8 +180,7 @@ class _SearchScreenState extends State<SearchScreen>
         ),
       ),
       body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.primary))
+          ? const SearchUserSkeleton()
           : TabBarView(
               controller: _tabController,
               children: [

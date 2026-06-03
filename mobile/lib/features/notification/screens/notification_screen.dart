@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/skeleton.dart';
 import '../../feed/screens/post_detail_screen.dart';
 import '../../feed/services/post_service.dart';
 import '../../profile/screens/user_profile_screen.dart';
@@ -114,8 +115,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
         ],
       ),
       body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.primary))
+          ? const NotificationSkeleton()
           : _hasError
               ? _buildError()
               : _notifications.isEmpty
