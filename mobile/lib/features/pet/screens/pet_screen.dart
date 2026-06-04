@@ -4,6 +4,7 @@ import '../models/pet_model.dart';
 import '../screens/add_pet_screen.dart';
 import '../screens/edit_pet_screen.dart';
 import '../services/pet_service.dart';
+import '../../calendar/screens/weight_chart_screen.dart';
 
 class PetScreen extends StatefulWidget {
   const PetScreen({super.key});
@@ -50,6 +51,20 @@ class _PetScreenState extends State<PetScreen> {
                 ),
                 child: Column(
                   children: [
+                    ListTile(
+                      leading: const Icon(Icons.show_chart_rounded,
+                          color: AppColors.primary),
+                      title: const Text('체중 그래프'),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => WeightChartScreen(pet: pet)),
+                        );
+                      },
+                    ),
+                    const Divider(height: 1),
                     ListTile(
                       leading: const Icon(Icons.edit_outlined,
                           color: AppColors.textPrimary),

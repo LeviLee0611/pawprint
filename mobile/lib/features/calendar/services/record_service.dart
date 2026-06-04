@@ -187,6 +187,17 @@ class RecordService {
     }
   }
 
+  Future<List<Record>> getWeightRecords(String petId) async {
+    final data = await _supabase
+        .from('records')
+        .select()
+        .eq('pet_id', petId)
+        .eq('type', 'weight')
+        .not('value', 'is', null)
+        .order('date', ascending: true);
+    return (data as List).map((e) => Record.fromJson(e)).toList();
+  }
+
   Future<void> deleteRecord(String id, {String? photoUrl}) async {
     if (photoUrl != null) {
       final path = StoragePathUtil.fromUrl(photoUrl, _bucket);
