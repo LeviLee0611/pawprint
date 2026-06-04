@@ -193,4 +193,29 @@ alter table public.profiles drop column if exists fcm_token;
 alter table public.fcm_tokens drop constraint if exists fcm_tokens_pkey;
 alter table public.fcm_tokens add column if not exists id uuid default gen_random_uuid();
 alter table public.fcm_tokens add primary key (id);
-alter table public.fcm_tokens add constraint if not exists fcm_tokens_token_unique unique (token);
+do $$ begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'fcm_tokens_token_unique'
+  ) then
+    alter table public.fcm_tokens add constraint fcm_tokens_token_unique unique (token);
+  end if;
+end $$;
+
+
+-- 5. 게시글 저장 기능 (2026-06-04)
+create table if not exists public.saves (
+  id uuid default gen_random_uuid() primary key,
+  owner_id uuid references public.profiles(id) on delete cascade not null,
+  post_id uuid references public.posts(id) on delete cascade not null,
+  created_at timestamptz default now(),
+  unique (owner_id, post_id)
+);
+
+alter table public.saves enable row level security;
+
+drop policy if exists "본인 저장만 관리" on public.saves;
+create policy "본인 저장만 관리" on public.saves
+  for all using (auth.uid() = owner_id);
+
+create index if not exists saves_owner_id_idx on public.saves(owner_id);
+create index if not exists saves_post_id_idx on public.saves(post_id);

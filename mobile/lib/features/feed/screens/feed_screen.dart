@@ -25,7 +25,7 @@ class FeedScreen extends StatefulWidget {
   State<FeedScreen> createState() => _FeedScreenState();
 }
 
-enum _FeedFilter { all, following, cat, dog }
+enum _FeedFilter { all, following, cat, dog, popular }
 
 class _FeedScreenState extends State<FeedScreen> {
   final _postService = PostService();
@@ -46,6 +46,7 @@ class _FeedScreenState extends State<FeedScreen> {
   int _rawOffset = 0; // 차단 필터와 무관한 실제 서버 offset
   int _unreadNotifications = 0;
   final Set<String> _togglingLikes = {};
+  final Set<String> _togglingSaves = {};
   late final ScrollController _scrollController;
 
   @override
@@ -133,17 +134,25 @@ class _FeedScreenState extends State<FeedScreen> {
   Future<void> _loadPosts({bool reset = false}) async {
     if (reset) setState(() { _posts = []; _hasMore = true; _rawOffset = 0; });
     try {
-      final rawPosts = await _postService.getPosts(
-        offset: reset ? 0 : _rawOffset,
-        petType: _filter == _FeedFilter.cat
-            ? 'cat'
-            : _filter == _FeedFilter.dog
-                ? 'dog'
-                : null,
-        followingIds: _filter == _FeedFilter.following
-            ? _followingIds.toList()
-            : null,
-      );
+      final List<Post> rawPosts;
+      if (_filter == _FeedFilter.popular) {
+        rawPosts = await _postService.getPopularPosts(
+          offset: reset ? 0 : _rawOffset,
+          blockedIds: _blockedIds.toList(),
+        );
+      } else {
+        rawPosts = await _postService.getPosts(
+          offset: reset ? 0 : _rawOffset,
+          petType: _filter == _FeedFilter.cat
+              ? 'cat'
+              : _filter == _FeedFilter.dog
+                  ? 'dog'
+                  : null,
+          followingIds: _filter == _FeedFilter.following
+              ? _followingIds.toList()
+              : null,
+        );
+      }
       if (!mounted) return;
       setState(() {
         if (reset) {
@@ -159,8 +168,27 @@ class _FeedScreenState extends State<FeedScreen> {
     }
   }
 
-  // 필터 변경 시 서버에서 재조회
   List<Post> get _filteredPosts => _posts;
+
+  Future<void> _toggleSave(int index) async {
+    final post = _posts[index];
+    if (_togglingSaves.contains(post.id)) return;
+    _togglingSaves.add(post.id);
+    setState(() {
+      _posts[index] = post.copyWith(isSavedByMe: !post.isSavedByMe);
+    });
+    try {
+      final saved = await _postService.toggleSave(post.id);
+      if (mounted) {
+        setState(() => _posts[index] = post.copyWith(isSavedByMe: saved));
+      }
+    } catch (e) {
+      debugPrint('toggleSave error: $e');
+      if (mounted) setState(() => _posts[index] = post);
+    } finally {
+      _togglingSaves.remove(post.id);
+    }
+  }
 
   Future<void> _toggleLike(int index) async {
     final post = _posts[index];
@@ -271,6 +299,7 @@ class _FeedScreenState extends State<FeedScreen> {
     const items = [
       (_FeedFilter.all, '전체'),
       (_FeedFilter.following, '팔로잉'),
+      (_FeedFilter.popular, '인기 🔥'),
       (_FeedFilter.cat, '고양이 🐱'),
       (_FeedFilter.dog, '강아지 🐶'),
     ];
@@ -341,6 +370,7 @@ class _FeedScreenState extends State<FeedScreen> {
             _ThreadPost(
               post: post,
               onLike: () => _toggleLike(rawIndex),
+              onSave: () => _toggleSave(rawIndex),
               onTap: () async {
                 await Navigator.push(
                   context,
@@ -396,12 +426,14 @@ class _FeedScreenState extends State<FeedScreen> {
 class _ThreadPost extends StatelessWidget {
   final Post post;
   final VoidCallback onLike;
+  final VoidCallback onSave;
   final VoidCallback onTap;
   final VoidCallback onProfileTap;
 
   const _ThreadPost({
     required this.post,
     required this.onLike,
+    required this.onSave,
     required this.onTap,
     required this.onProfileTap,
   });
@@ -534,6 +566,17 @@ class _ThreadPost extends StatelessWidget {
                             : '',
                         color: AppColors.textHint,
                         onTap: onTap,
+                      ),
+                      const Spacer(),
+                      _ActionBtn(
+                        icon: post.isSavedByMe
+                            ? Icons.bookmark_rounded
+                            : Icons.bookmark_border_rounded,
+                        label: '',
+                        color: post.isSavedByMe
+                            ? AppColors.primary
+                            : AppColors.textHint,
+                        onTap: onSave,
                       ),
                     ],
                   ),

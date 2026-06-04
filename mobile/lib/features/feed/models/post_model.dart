@@ -7,6 +7,7 @@ class Post {
   final int likesCount;
   final int commentsCount;
   final bool isLikedByMe;
+  final bool isSavedByMe;
   final DateTime createdAt;
   final String? ownerName;
   final String? ownerAvatarUrl;
@@ -22,6 +23,7 @@ class Post {
     required this.likesCount,
     required this.commentsCount,
     this.isLikedByMe = false,
+    this.isSavedByMe = false,
     required this.createdAt,
     this.ownerName,
     this.ownerAvatarUrl,
@@ -30,7 +32,7 @@ class Post {
   });
 
   factory Post.fromJson(Map<String, dynamic> json,
-      {bool isLikedByMe = false}) {
+      {bool isLikedByMe = false, bool isSavedByMe = false}) {
     final profile = json['profiles'] as Map<String, dynamic>?;
     final pet = json['pets'] as Map<String, dynamic>?;
     return Post(
@@ -42,6 +44,7 @@ class Post {
       likesCount: (json['likes_count'] as int?) ?? 0,
       commentsCount: (json['comments_count'] as int?) ?? 0,
       isLikedByMe: isLikedByMe,
+      isSavedByMe: isSavedByMe,
       createdAt: DateTime.parse(json['created_at'] as String),
       ownerName: profile?['display_name'] as String?,
       ownerAvatarUrl: profile?['avatar_url'] as String?,
@@ -57,6 +60,7 @@ class Post {
     int? likesCount,
     int? commentsCount,
     bool? isLikedByMe,
+    bool? isSavedByMe,
     String? ownerName,
     String? ownerAvatarUrl,
     String? petName,
@@ -71,6 +75,7 @@ class Post {
         likesCount: likesCount ?? this.likesCount,
         commentsCount: commentsCount ?? this.commentsCount,
         isLikedByMe: isLikedByMe ?? this.isLikedByMe,
+        isSavedByMe: isSavedByMe ?? this.isSavedByMe,
         createdAt: createdAt,
         ownerName: ownerName ?? this.ownerName,
         ownerAvatarUrl: ownerAvatarUrl ?? this.ownerAvatarUrl,

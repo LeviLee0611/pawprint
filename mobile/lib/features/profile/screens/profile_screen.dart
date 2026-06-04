@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/image_util.dart';
@@ -9,6 +8,7 @@ import '../../../features/calendar/screens/records_history_screen.dart';
 import '../../../features/calendar/services/record_service.dart';
 import '../../../features/pet/screens/pet_screen.dart';
 import '../../../features/pet/services/pet_service.dart';
+import '../../notification/screens/notification_settings_screen.dart';
 import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -25,7 +25,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   int _petCount = 0;
   int _recordCount = 0;
-  bool _notificationsEnabled = true;
   bool _loading = true;
 
   @override
@@ -38,26 +37,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final results = await Future.wait([
       _petService.getMyPets(),
       _recordService.getTotalRecordCount(),
-      SharedPreferences.getInstance(),
     ]);
 
     if (!mounted) return;
     final pets = results[0] as List;
     final recordCount = results[1] as int;
-    final prefs = results[2] as SharedPreferences;
 
     setState(() {
       _petCount = pets.length;
       _recordCount = recordCount;
-      _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
       _loading = false;
     });
-  }
-
-  Future<void> _toggleNotifications(bool value) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('notifications_enabled', value);
-    setState(() => _notificationsEnabled = value);
   }
 
   Future<void> _signOut() async {
@@ -260,12 +250,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           // ── 설정 ──────────────────────────────────
           _sectionLabel('설정'),
-          _switchTile(
+          _navTile(
             icon: Icons.notifications_outlined,
-            label: '알림',
-            subtitle: '일일 기록 알림을 받아요',
-            value: _notificationsEnabled,
-            onChanged: _toggleNotifications,
+            label: '알림 설정',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => const NotificationSettingsScreen()),
+            ),
           ),
 
           // ── 정보 ──────────────────────────────────
@@ -388,32 +380,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 letterSpacing: 0.6)),
       );
 
-  // ── 스위치 타일 ───────────────────────────────────
-  Widget _switchTile({
-    required IconData icon,
-    required String label,
-    required String subtitle,
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) =>
-      _tileWrapper(
-        child: ListTile(
-          leading:
-              Icon(icon, color: AppColors.primary, size: 22),
-          title: Text(label,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textPrimary)),
-          subtitle: Text(subtitle,
-              style: const TextStyle(
-                  fontSize: 12, color: AppColors.textHint)),
-          trailing: Switch.adaptive(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: AppColors.primary,
-          ),
-        ),
-      );
 
   // ── 네비 타일 ─────────────────────────────────────
   Widget _navTile({

@@ -42,23 +42,125 @@ class PostService {
         .order('created_at', ascending: false)
         .range(offset, offset + _pageSize - 1);
 
-    // 로드된 게시글 ID에 한해서만 좋아요 조회 (전체 X)
+    final postIds = (data as List).map((e) => e['id'] as String).toList();
     Set<String> myLikes = {};
-    if (userId != null && (data as List).isNotEmpty) {
-      final postIds = data.map((e) => e['id'] as String).toList();
+    Set<String> mySaves = {};
+    if (userId != null && postIds.isNotEmpty) {
+      final results = await Future.wait([
+        _supabase
+            .from('likes')
+            .select('post_id')
+            .eq('owner_id', userId)
+            .inFilter('post_id', postIds),
+        _supabase
+            .from('saves')
+            .select('post_id')
+            .eq('owner_id', userId)
+            .inFilter('post_id', postIds),
+      ]);
+      myLikes = (results[0] as List).map((e) => e['post_id'] as String).toSet();
+      mySaves = (results[1] as List).map((e) => e['post_id'] as String).toSet();
+    }
+
+    return (data as List)
+        .map((e) => Post.fromJson(e,
+            isLikedByMe: myLikes.contains(e['id']),
+            isSavedByMe: mySaves.contains(e['id'])))
+        .toList();
+  }
+
+  Future<List<Post>> getPopularPosts({
+    int offset = 0,
+    List<String>? blockedIds,
+  }) async {
+    final userId = _supabase.auth.currentUser?.id;
+
+    var query = _supabase.from('posts').select(_postSelect);
+
+    // 차단 유저 게시글 제외
+    if (blockedIds != null && blockedIds.isNotEmpty) {
+      query = query.not('owner_id', 'in', '(${blockedIds.join(',')})');
+    }
+
+    final data = await query
+        .order('likes_count', ascending: false)
+        .order('created_at', ascending: false)
+        .range(offset, offset + _pageSize - 1);
+
+    final postIds = (data as List).map((e) => e['id'] as String).toList();
+    Set<String> myLikes = {};
+    Set<String> mySaves = {};
+    if (userId != null && postIds.isNotEmpty) {
+      final results = await Future.wait([
+        _supabase
+            .from('likes')
+            .select('post_id')
+            .eq('owner_id', userId)
+            .inFilter('post_id', postIds),
+        _supabase
+            .from('saves')
+            .select('post_id')
+            .eq('owner_id', userId)
+            .inFilter('post_id', postIds),
+      ]);
+      myLikes = (results[0] as List).map((e) => e['post_id'] as String).toSet();
+      mySaves = (results[1] as List).map((e) => e['post_id'] as String).toSet();
+    }
+
+    return (data as List)
+        .map((e) => Post.fromJson(e,
+            isLikedByMe: myLikes.contains(e['id']),
+            isSavedByMe: mySaves.contains(e['id'])))
+        .toList();
+  }
+
+  Future<List<Post>> getSavedPosts() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return [];
+
+    final savesData = await _supabase
+        .from('saves')
+        .select('post_id, posts($_postSelect)')
+        .eq('owner_id', userId)
+        .order('created_at', ascending: false);
+
+    final postIds = (savesData as List).map((e) => e['post_id'] as String).toList();
+    Set<String> myLikes = {};
+    if (postIds.isNotEmpty) {
       final likesData = await _supabase
           .from('likes')
           .select('post_id')
           .eq('owner_id', userId)
           .inFilter('post_id', postIds);
-      myLikes =
-          (likesData as List).map((e) => e['post_id'] as String).toSet();
+      myLikes = (likesData as List).map((e) => e['post_id'] as String).toSet();
     }
 
-    return (data as List)
-        .map((e) =>
-            Post.fromJson(e, isLikedByMe: myLikes.contains(e['id'])))
+    return (savesData as List)
+        .where((e) => e['posts'] != null)
+        .map((e) => Post.fromJson(
+              e['posts'] as Map<String, dynamic>,
+              isLikedByMe: myLikes.contains(e['post_id']),
+              isSavedByMe: true,
+            ))
         .toList();
+  }
+
+  Future<bool> toggleSave(String postId) async {
+    final userId = _supabase.auth.currentUser!.id;
+    final existing = await _supabase
+        .from('saves')
+        .select('id')
+        .eq('post_id', postId)
+        .eq('owner_id', userId)
+        .maybeSingle();
+
+    if (existing != null) {
+      await _supabase.from('saves').delete().eq('id', existing['id']);
+      return false;
+    } else {
+      await _supabase.from('saves').insert({'post_id': postId, 'owner_id': userId});
+      return true;
+    }
   }
 
   Future<List<Post>> getPostsByUser(String userId) async {

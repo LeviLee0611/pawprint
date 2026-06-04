@@ -6,6 +6,7 @@ import '../../feed/models/post_model.dart';
 import '../../feed/screens/post_detail_screen.dart';
 import '../../feed/services/follow_service.dart';
 import '../../feed/services/post_service.dart';
+import '../../feed/screens/saved_posts_screen.dart';
 import '../widgets/profile_banner.dart';
 import 'follow_list_screen.dart';
 
@@ -69,6 +70,16 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
         backgroundColor: const Color(0xFFFFF0DC),
         title: Text(_displayName, style: const TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.bookmark_border_rounded),
+            tooltip: '저장된 게시글',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SavedPostsScreen()),
+            ),
+          ),
+        ],
       ),
       body: _loading
           ? const SingleChildScrollView(
