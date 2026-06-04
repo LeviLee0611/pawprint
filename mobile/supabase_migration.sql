@@ -184,3 +184,13 @@ on conflict (owner_id) do update set token = excluded.token;
 
 -- profiles에서 fcm_token 컬럼 제거 (데이터 이전 후)
 alter table public.profiles drop column if exists fcm_token;
+
+
+-- 4. fcm_tokens 멀티 디바이스 지원 (2026-06-04)
+--    기존: owner_id PK → 유저당 토큰 1개 (기기 교체/멀티 기기 시 토큰 유실)
+--    변경: id UUID PK + token UNIQUE → 기기별 독립 토큰 관리
+--    로그아웃 시 해당 기기 토큰만 삭제, 다른 기기 알림 영향 없음
+alter table public.fcm_tokens drop constraint if exists fcm_tokens_pkey;
+alter table public.fcm_tokens add column if not exists id uuid default gen_random_uuid();
+alter table public.fcm_tokens add primary key (id);
+alter table public.fcm_tokens add constraint if not exists fcm_tokens_token_unique unique (token);

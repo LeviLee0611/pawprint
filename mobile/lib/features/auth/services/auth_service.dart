@@ -1,5 +1,6 @@
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart' hide User;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/services/notification_service.dart';
 
 class AuthService {
   final _supabase = Supabase.instance.client;
@@ -31,6 +32,7 @@ class AuthService {
   }
 
   Future<void> signOut() async {
+    await NotificationService.clearToken();
     await _supabase.auth.signOut();
   }
 

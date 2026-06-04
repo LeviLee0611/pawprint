@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -7,6 +8,8 @@ class NotificationService {
   static final _supabase = Supabase.instance.client;
 
   static bool _initialized = false;
+  static StreamSubscription<String>? _tokenRefreshSub;
+  static StreamSubscription<RemoteMessage>? _messageOpenedSub;
 
   // App이 등록하는 콜백 — 알림 탭 시 캘린더로 이동
   static VoidCallback? onNotificationTap;
@@ -25,7 +28,7 @@ class NotificationService {
       await _saveToken();
     }
 
-    _messaging.onTokenRefresh.listen(_updateToken);
+    _tokenRefreshSub = _messaging.onTokenRefresh.listen(_updateToken);
 
     await FirebaseMessaging.instance
         .setForegroundNotificationPresentationOptions(
@@ -35,7 +38,7 @@ class NotificationService {
     );
 
     // 앱이 백그라운드일 때 알림 탭
-    FirebaseMessaging.onMessageOpenedApp.listen((_) {
+    _messageOpenedSub = FirebaseMessaging.onMessageOpenedApp.listen((_) {
       onNotificationTap?.call();
     });
 
@@ -56,24 +59,40 @@ class NotificationService {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return;
     try {
-      await _supabase.from('fcm_tokens').upsert({
-        'owner_id': userId,
-        'token': token,
-        'updated_at': DateTime.now().toIso8601String(),
-      });
-    } catch (_) {}
+      await _supabase.from('fcm_tokens').upsert(
+        {
+          'owner_id': userId,
+          'token': token,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        onConflict: 'token',
+      );
+    } catch (e) {
+      debugPrint('FCM token upsert 실패: $e');
+    }
   }
 
   static Future<void> clearToken() async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) return;
+    // DB 삭제와 FCM 삭제를 분리 — 한쪽 실패가 다른 작업을 막지 않도록
     try {
-      await _supabase
-          .from('fcm_tokens')
-          .delete()
-          .eq('owner_id', userId);
+      final token = await _messaging.getToken();
+      if (token != null) {
+        await _supabase.from('fcm_tokens').delete().eq('token', token);
+      }
+    } catch (e) {
+      debugPrint('FCM DB 토큰 삭제 실패: $e');
+    }
+
+    try {
       await _messaging.deleteToken();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('FCM 토큰 삭제 실패: $e');
+    }
+
+    await _tokenRefreshSub?.cancel();
+    await _messageOpenedSub?.cancel();
+    _tokenRefreshSub = null;
+    _messageOpenedSub = null;
     _initialized = false;
   }
 }
