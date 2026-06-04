@@ -669,7 +669,7 @@ void _showPostOptions(
   );
 }
 
-class _ActionBtn extends StatelessWidget {
+class _ActionBtn extends StatefulWidget {
   final IconData icon;
   final String label;
   final Color color;
@@ -682,22 +682,64 @@ class _ActionBtn extends StatelessWidget {
       required this.onTap});
 
   @override
+  State<_ActionBtn> createState() => _ActionBtnState();
+}
+
+class _ActionBtnState extends State<_ActionBtn>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+    _scale = TweenSequence<double>([
+      TweenSequenceItem(
+          tween: Tween(begin: 1.0, end: 1.4)
+              .chain(CurveTween(curve: Curves.easeOut)),
+          weight: 40),
+      TweenSequenceItem(
+          tween: Tween(begin: 1.4, end: 1.0)
+              .chain(CurveTween(curve: Curves.elasticOut)),
+          weight: 60),
+    ]).animate(_ctrl);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _handleTap() {
+    _ctrl.forward(from: 0);
+    widget.onTap();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: _handleTap,
       behavior: HitTestBehavior.opaque,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 2),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 19, color: color),
-            if (label.isNotEmpty) ...[
+            ScaleTransition(
+              scale: _scale,
+              child: Icon(widget.icon, size: 19, color: widget.color),
+            ),
+            if (widget.label.isNotEmpty) ...[
               const SizedBox(width: 4),
-              Text(label,
+              Text(widget.label,
                   style: TextStyle(
                       fontSize: 13,
-                      color: color,
+                      color: widget.color,
                       fontWeight: FontWeight.w500)),
             ],
           ],
