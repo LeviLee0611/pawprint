@@ -11,10 +11,13 @@ class RecordBottomSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final formatted = DateFormat('yyyy년 M월 d일 (E)', 'ko').format(date);
 
-    return Padding(
+    return SafeArea(
+      top: false,
+      child: Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: SingleChildScrollView(
       child: Container(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -64,23 +67,17 @@ class RecordBottomSheet extends StatelessWidget {
               onTap: () => Navigator.pop(context, 'weight'),
             ),
             _RecordOption(
-              icon: Icons.water_drop_rounded,
-              label: '목욕',
-              description: '목욕 기록을 남겨요',
-              color: const Color(0xFF42A5F5),
-              bgColor: const Color(0xFFE3F2FD),
-              onTap: () => Navigator.pop(context, 'bath'),
-            ),
-            _RecordOption(
               icon: Icons.favorite_rounded,
               label: '건강 메모',
-              description: '특이사항이나 메모를 남겨요',
+              description: '목욕·케어·특이사항 등을 기록해요',
               color: AppColors.peach,
               bgColor: AppColors.peachLight,
               onTap: () => Navigator.pop(context, 'note'),
             ),
           ],
         ),
+      ),
+      ),
       ),
     );
   }

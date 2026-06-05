@@ -24,7 +24,7 @@ class ReminderService {
     if (userId == null) return [];
     final data = await _supabase
         .from('reminders')
-        .select()
+        .select('*, pets(name, type)')
         .eq('owner_id', userId)
         .eq('sent', false)
         .order('remind_at');

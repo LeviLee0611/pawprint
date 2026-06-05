@@ -9,6 +9,8 @@ import '../../../features/calendar/services/record_service.dart';
 import '../../../features/pet/screens/pet_screen.dart';
 import '../../../features/pet/services/pet_service.dart';
 import '../../notification/screens/notification_settings_screen.dart';
+import '../../calendar/screens/reminder_screen.dart';
+import '../../feedback/screens/feedback_screen.dart';
 import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -247,6 +249,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
               MaterialPageRoute(builder: (_) => const PetScreen()),
             ),
           ),
+          _navTile(
+            icon: Icons.vaccines_outlined,
+            label: '예방접종 알림 관리',
+            iconColor: AppColors.green,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ReminderScreen()),
+            ),
+          ),
 
           // ── 설정 ──────────────────────────────────
           _sectionLabel('설정'),
@@ -262,6 +273,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           // ── 정보 ──────────────────────────────────
           _sectionLabel('정보'),
+          _navTile(
+            icon: Icons.rate_review_outlined,
+            label: '피드백 보내기',
+            iconColor: AppColors.primary,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const FeedbackScreen()),
+            ),
+          ),
           _navTile(
             icon: Icons.description_outlined,
             label: '이용약관',

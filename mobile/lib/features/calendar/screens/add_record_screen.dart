@@ -37,6 +37,19 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
   bool _reminderEnabled = false;
   DateTime? _reminderDate;
 
+  // 건강 메모 빠른 선택
+  final Set<String> _selectedActivities = {};
+  static const _quickActivities = [
+    ('🛁', '목욕'),
+    ('🪮', '빗질'),
+    ('✂️', '발톱 정리'),
+    ('👂', '귀 청소'),
+    ('🦷', '양치'),
+    ('💊', '구충제'),
+    ('🏥', '병원 방문'),
+    ('🎀', '미용'),
+  ];
+
   bool get _isWeight => widget.type == 'weight';
   bool get _isPhoto => widget.type == 'photo';
   bool get _isHealth => widget.type == 'health';
@@ -138,11 +151,29 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
         return;
       }
     } else {
-      if (_notesController.text.trim().isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('내용을 입력해주세요')),
-        );
-        return;
+      final freeText = _notesController.text.trim();
+      final String? combinedNote;
+      if (!_isHealth) {
+        // note 타입: 칩 + 직접 입력 조합
+        final chips = _selectedActivities.toList();
+        if (chips.isEmpty && freeText.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('항목을 선택하거나 내용을 입력해주세요')),
+          );
+          return;
+        }
+        combinedNote = [
+          if (chips.isNotEmpty) chips.join(', '),
+          if (freeText.isNotEmpty) freeText,
+        ].join('\n');
+      } else {
+        combinedNote = freeText;
+        if (freeText.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('내용을 입력해주세요')),
+          );
+          return;
+        }
       }
       setState(() => _saving = true);
       try {
@@ -150,7 +181,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
           petId: widget.pet.id,
           date: widget.date,
           type: widget.type,
-          notes: _notesController.text.trim(),
+          notes: combinedNote,
         );
         // 예방접종 알림 설정
         if (_isHealth && _reminderEnabled && _reminderDate != null) {
@@ -457,60 +488,124 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                       horizontal: 16, vertical: 14),
                 ),
               ),
-            ] else ...[
-              Text(
-                widget.type == 'health' ? '접종 내용' : '오늘의 기록',
-                style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                    fontSize: 15),
-              ),
+            ] else if (_isHealth) ...[
+              const Text('접종 내용',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                      fontSize: 15)),
               const SizedBox(height: 10),
               TextField(
                 controller: _notesController,
-                maxLines: _isHealth ? 4 : 12,
-                minLines: _isHealth ? 3 : 8,
+                maxLines: 4,
+                minLines: 3,
                 autofocus: true,
                 textAlignVertical: TextAlignVertical.top,
                 decoration: InputDecoration(
-                  hintText: widget.type == 'health'
-                      ? '예: 광견병 예방접종 1차'
-                      : '오늘 ${widget.pet.name}의 상태는 어떤가요?',
-                  hintStyle: const TextStyle(
-                      color: AppColors.textHint, fontSize: 14),
+                  hintText: '예: 광견병 예방접종 1차',
+                  hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 14),
                   filled: true,
                   fillColor: AppColors.surface,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(14),
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 14),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
               ),
-              if (_isHealth) ...[
-                const SizedBox(height: 24),
-                _ReminderSection(
-                  enabled: _reminderEnabled,
-                  date: _reminderDate,
-                  onToggle: (v) => setState(() {
-                    _reminderEnabled = v;
-                    if (v && _reminderDate == null) {
-                      _reminderDate = widget.date.add(const Duration(days: 365));
-                    }
-                  }),
-                  onPickDate: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: _reminderDate ?? widget.date.add(const Duration(days: 365)),
-                      firstDate: DateTime.now().add(const Duration(days: 1)),
-                      lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
-                      locale: const Locale('ko'),
-                    );
-                    if (picked != null) setState(() => _reminderDate = picked);
-                  },
+              const SizedBox(height: 24),
+              _ReminderSection(
+                enabled: _reminderEnabled,
+                date: _reminderDate,
+                onToggle: (v) => setState(() {
+                  _reminderEnabled = v;
+                  if (v && _reminderDate == null) {
+                    _reminderDate = widget.date.add(const Duration(days: 365));
+                  }
+                }),
+                onPickDate: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _reminderDate ?? widget.date.add(const Duration(days: 365)),
+                    firstDate: DateTime.now().add(const Duration(days: 1)),
+                    lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+                    locale: const Locale('ko'),
+                  );
+                  if (picked != null) setState(() => _reminderDate = picked);
+                },
+              ),
+            ] else ...[
+              // 건강 메모 — 빠른 선택 칩
+              const Text('어떤 케어를 했나요?',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                      fontSize: 15)),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _quickActivities.map((a) {
+                  final selected = _selectedActivities.contains(a.$2);
+                  return GestureDetector(
+                    onTap: () => setState(() {
+                      if (selected) {
+                        _selectedActivities.remove(a.$2);
+                      } else {
+                        _selectedActivities.add(a.$2);
+                      }
+                    }),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                      decoration: BoxDecoration(
+                        color: selected ? AppColors.peach : AppColors.surface,
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(
+                          color: selected ? AppColors.peach : AppColors.brownLight,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(a.$1, style: const TextStyle(fontSize: 16)),
+                          const SizedBox(width: 6),
+                          Text(a.$2,
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: selected ? Colors.white : AppColors.textSecondary)),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 24),
+              const Text('직접 입력 (선택)',
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                      fontSize: 15)),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _notesController,
+                maxLines: 5,
+                minLines: 3,
+                textAlignVertical: TextAlignVertical.top,
+                decoration: InputDecoration(
+                  hintText: '추가로 남기고 싶은 내용을 적어주세요\n예: 오늘 첫 미용, 밥을 잘 안 먹었어요',
+                  hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 13),
+                  filled: true,
+                  fillColor: AppColors.surface,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 ),
-              ],
+              ),
             ],
           ],
         ),

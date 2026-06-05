@@ -8,6 +8,8 @@ import '../screens/record_detail_screen.dart';
 import '../screens/photo_gallery_screen.dart';
 import '../screens/photo_viewer_screen.dart';
 import '../widgets/record_bottom_sheet.dart';
+import '../services/reminder_service.dart';
+import '../screens/reminder_screen.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../pet/models/pet_model.dart';
 import '../../pet/screens/add_pet_screen.dart';
@@ -23,11 +25,13 @@ class CalendarScreen extends StatefulWidget {
 class _CalendarScreenState extends State<CalendarScreen> {
   final _petService = PetService();
   final _recordService = RecordService();
+  final _reminderService = ReminderService();
 
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
 
   List<Pet> _pets = [];
+  List<Map<String, dynamic>> _upcomingReminders = [];
   String? _selectedPetId; // null = 전체
   bool _loadingPet = true;
   Map<DateTime, List<Record>> _recordsByDate = {};
@@ -54,6 +58,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
   void initState() {
     super.initState();
     _loadPets();
+    _loadReminders();
+  }
+
+  Future<void> _loadReminders() async {
+    try {
+      final data = await _reminderService.getMyReminders();
+      if (mounted) setState(() => _upcomingReminders = data);
+    } catch (_) {}
   }
 
   Future<void> _loadPets() async {
@@ -200,12 +212,43 @@ class _CalendarScreenState extends State<CalendarScreen> {
             actions: [
               if (_pets.isNotEmpty) ...[
                 IconButton(
-                  icon: const Icon(Icons.photo_library_outlined),
-                  color: AppColors.brown,
+                  icon: const Icon(Icons.photo_library_rounded),
+                  color: AppColors.primary,
                   tooltip: '사진 모아보기',
                   onPressed: () => Navigator.push(context,
                       MaterialPageRoute(
                           builder: (_) => const PhotoGalleryScreen())),
+                ),
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.vaccines_outlined),
+                      color: AppColors.green,
+                      tooltip: '예방접종 알림',
+                      onPressed: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const ReminderScreen()),
+                        );
+                        _loadReminders();
+                      },
+                    ),
+                    if (_upcomingReminders.isNotEmpty)
+                      Positioned(
+                        top: 10,
+                        right: 8,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: AppColors.peach,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 IconButton(
                   icon: const Icon(Icons.add_circle_outline),
