@@ -50,8 +50,8 @@ class CommunityService {
       'post_id': postId,
       'reporter_id': userId,
       if (address != null && address.isNotEmpty) 'address': address,
-      if (latitude != null) 'latitude': latitude,
-      if (longitude != null) 'longitude': longitude,
+      'latitude': ?latitude,
+      'longitude': ?longitude,
       if (note != null && note.isNotEmpty) 'note': note,
     });
   }
@@ -120,12 +120,12 @@ class CommunityService {
         'content': content,
         'image_urls': uploadedUrls,
         if (petName != null && petName.isNotEmpty) 'pet_name': petName,
-        if (petType != null) 'pet_type': petType,
+        'pet_type': ?petType,
         if (location != null && location.isNotEmpty) 'location': location,
         if (contact != null && contact.isNotEmpty) 'contact': contact,
         if (address != null && address.isNotEmpty) 'address': address,
-        if (latitude != null) 'latitude': latitude,
-        if (longitude != null) 'longitude': longitude,
+        'latitude': ?latitude,
+        'longitude': ?longitude,
       });
     } catch (e) {
       if (uploadedPaths.isNotEmpty) {
@@ -160,9 +160,9 @@ class CommunityService {
           'location': location?.isNotEmpty == true ? location : null,
           'contact': contact?.isNotEmpty == true ? contact : null,
           'address': address?.isNotEmpty == true ? address : null,
-          if (latitude != null) 'latitude': latitude,
-          if (longitude != null) 'longitude': longitude,
-          if (status != null) 'status': status,
+          'latitude': ?latitude,
+          'longitude': ?longitude,
+          'status': ?status,
         })
         .eq('id', postId)
         .select('*, profiles:owner_id(display_name, avatar_url)')

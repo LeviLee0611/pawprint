@@ -63,7 +63,7 @@ Future<void> showReportSheet(
                                 scaffoldMessenger.showSnackBar(
                                   SnackBar(
                                     content: Text('신고 실패: $err'),
-                                    backgroundColor: Colors.red,
+                                    backgroundColor: AppColors.error,
                                     duration: const Duration(seconds: 2),
                                   ),
                                 );

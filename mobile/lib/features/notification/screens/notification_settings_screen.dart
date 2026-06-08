@@ -81,7 +81,7 @@ class _NotificationSettingsScreenState
                 _SectionHeader(title: '좋아요'),
                 _LevelTile(
                   icon: Icons.favorite_rounded,
-                  iconColor: const Color(0xFFE53935),
+                  iconColor: AppColors.error,
                   title: '좋아요 알림',
                   subtitle: '내 게시글에 좋아요를 받으면 알려드려요',
                   value: _settings.likeSetting,
@@ -114,7 +114,7 @@ class _NotificationSettingsScreenState
                 ),
                 _SwitchTile(
                   icon: Icons.feed_rounded,
-                  iconColor: const Color(0xFF43A047),
+                  iconColor: AppColors.success,
                   title: '새 게시글 알림',
                   subtitle: '팔로우한 사람이 글을 올리면 알려드려요',
                   value: _settings.newPostEnabled,

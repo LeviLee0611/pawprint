@@ -209,7 +209,6 @@ class ProfileBannerSkeleton extends StatelessWidget {
     return _Shimmer(
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
@@ -217,19 +216,31 @@ class ProfileBannerSkeleton extends StatelessWidget {
             colors: [Color(0xFFFFF0DC), Color(0xFFFFFAF5)],
           ),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _box(width: 80, height: 80, radius: 40),
-            const SizedBox(width: 20),
-            Expanded(
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _StatSkeleton(),
-                  _StatSkeleton(),
-                  _StatSkeleton(),
+                  _box(width: 80, height: 80, radius: 40),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _StatSkeleton(),
+                        _StatSkeleton(),
+                        _StatSkeleton(),
+                      ],
+                    ),
+                  ),
                 ],
               ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: _box(width: 100, height: 14),
             ),
           ],
         ),

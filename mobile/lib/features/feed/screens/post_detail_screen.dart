@@ -129,7 +129,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('오류: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('오류: $e'), backgroundColor: AppColors.error),
         );
       }
     } finally {
@@ -181,7 +181,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               onPressed: () => Navigator.pop(context, true),
               child: const Text('삭제',
                   style: TextStyle(
-                      color: Colors.red,
+                      color: AppColors.error,
                       fontWeight: FontWeight.bold))),
         ],
       ),
@@ -246,10 +246,10 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                           const Divider(height: 1, indent: 16),
                           ListTile(
                             leading: const Icon(Icons.delete_outline,
-                                color: Colors.red),
+                                color: AppColors.error),
                             title: const Text('삭제',
                                 style: TextStyle(
-                                    color: Colors.red,
+                                    color: AppColors.error,
                                     fontWeight: FontWeight.w600)),
                             onTap: () {
                               Navigator.pop(context);
@@ -310,7 +310,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
         title: const Text('게시글'),
         bottom: const PreferredSize(
           preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: Color(0xFFEDE8E3)),
+          child: Divider(height: 1, color: AppColors.divider),
         ),
         actions: [
           IconButton(
@@ -326,7 +326,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
               controller: _scrollController,
               children: [
                 _OriginalPost(post: _post, onLike: _toggleLike),
-                const Divider(height: 1, color: Color(0xFFEDE8E3)),
+                const Divider(height: 1, color: AppColors.divider),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                   child: Text(
@@ -404,7 +404,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
             decoration: const BoxDecoration(
               color: Colors.white,
               border: Border(
-                  top: BorderSide(color: Color(0xFFEDE8E3), width: 1)),
+                  top: BorderSide(color: AppColors.divider, width: 1)),
             ),
             child: SafeArea(
               top: false,
@@ -528,7 +528,7 @@ class _OriginalPost extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                     color: AppColors.textSecondary)),
             const SizedBox(height: 10),
-            const Divider(height: 1, color: Color(0xFFEDE8E3)),
+            const Divider(height: 1, color: AppColors.divider),
             const SizedBox(height: 10),
           ],
           Row(
@@ -560,7 +560,7 @@ class _LikeBtn extends StatelessWidget {
             ? Icons.favorite_rounded
             : Icons.favorite_border_rounded,
         size: 24,
-        color: isLiked ? const Color(0xFFE53935) : AppColors.textHint,
+        color: isLiked ? AppColors.error : AppColors.textHint,
       ),
     );
   }
@@ -614,10 +614,10 @@ void _showCommentOptions(
                     const Divider(height: 1),
                     ListTile(
                       leading: const Icon(Icons.delete_outline,
-                          color: Colors.red),
+                          color: AppColors.error),
                       title: const Text('삭제',
                           style: TextStyle(
-                              color: Colors.red,
+                              color: AppColors.error,
                               fontWeight: FontWeight.w600)),
                       onTap: () {
                         Navigator.pop(context);
@@ -709,7 +709,7 @@ class _CommentThread extends StatelessWidget {
                           margin:
                               const EdgeInsets.symmetric(vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEDE8E3),
+                            color: AppColors.divider,
                             borderRadius: BorderRadius.circular(1),
                           ),
                         ),
@@ -874,7 +874,7 @@ class _DetailImageCarouselState extends State<_DetailImageCarousel> {
           widget.urls.first,
           width: double.infinity,
           fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => const SizedBox(),
+          errorBuilder: (_, _, _) => const SizedBox(),
         ),
       );
     }
@@ -892,7 +892,7 @@ class _DetailImageCarouselState extends State<_DetailImageCarousel> {
                 widget.urls[i],
                 width: double.infinity,
                 fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const SizedBox(),
+                errorBuilder: (_, _, _) => const SizedBox(),
               ),
             ),
           ),

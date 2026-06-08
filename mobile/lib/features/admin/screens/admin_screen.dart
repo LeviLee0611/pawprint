@@ -81,7 +81,16 @@ class _AdminScreenState extends State<AdminScreen> {
     );
     if (ok != true) return;
     try {
-      await _postService.deletePost(postId);
+      final row = await _supabase
+          .from('posts')
+          .select('image_url, image_urls')
+          .eq('id', postId)
+          .maybeSingle();
+      final urls = <String>[
+        if (row?['image_url'] is String) row!['image_url'] as String,
+        ...((row?['image_urls'] as List?)?.cast<String>() ?? []),
+      ];
+      await _postService.deletePost(postId, imageUrls: urls);
       await _updateStatus(reportId, 'resolved');
     } catch (e) {
       if (mounted) {

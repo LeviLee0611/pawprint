@@ -65,21 +65,34 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAF5),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFFFF0DC),
-        title: Text(_displayName, style: const TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.bookmark_border_rounded),
-            tooltip: '저장된 게시글',
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const SavedPostsScreen()),
+      backgroundColor: AppColors.background,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFFFF0DC), Color(0xFFFFFAF5)],
             ),
           ),
-        ],
+          child: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            title: Text(_displayName, style: const TextStyle(fontWeight: FontWeight.bold)),
+            centerTitle: false,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.bookmark_border_rounded),
+                tooltip: '저장된 게시글',
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SavedPostsScreen()),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
       body: _loading
           ? const SingleChildScrollView(

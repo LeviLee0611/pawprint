@@ -30,6 +30,7 @@ create or replace function public.auto_hide_on_reports()
 returns trigger
 language plpgsql
 security definer
+set search_path = public
 as $$
 declare
   cnt int;

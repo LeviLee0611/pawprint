@@ -88,7 +88,7 @@ class _FollowListScreenState extends State<FollowListScreen> {
               : ListView.separated(
                   itemCount: _users.length,
                   separatorBuilder: (_, _) =>
-                      const Divider(height: 1, color: Color(0xFFEDE8E3)),
+                      const Divider(height: 1, color: AppColors.divider),
                   itemBuilder: (context, index) {
                     final user = _users[index];
                     final avatarUrl = user['avatar_url'] as String?;

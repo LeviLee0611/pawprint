@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
+import '../../../core/services/location_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/community_post_model.dart';
 import '../services/community_service.dart';
@@ -57,21 +57,19 @@ class _EditCommunityPostScreenState extends State<EditCommunityPostScreen> {
   Future<void> _getCurrentLocation() async {
     setState(() => _gettingLocation = true);
     try {
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
+      final granted = await LocationService.ensurePermission(
+        context,
+        reason: '위치를 첨부하려면 위치 권한이 필요해요.',
+      );
+      if (!granted) return;
+      final pos = await LocationService.getCurrentPosition();
+      if (pos == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('위치 권한이 필요해요')));
+            const SnackBar(content: Text('위치를 가져올 수 없어요')));
         }
         return;
       }
-      final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-      );
       setState(() {
         _latitude = pos.latitude;
         _longitude = pos.longitude;
@@ -113,7 +111,7 @@ class _EditCommunityPostScreenState extends State<EditCommunityPostScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('오류: $e'), backgroundColor: Colors.red));
+          SnackBar(content: Text('오류: $e'), backgroundColor: AppColors.error));
       }
     } finally {
       if (mounted) setState(() => _submitting = false);

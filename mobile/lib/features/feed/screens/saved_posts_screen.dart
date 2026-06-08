@@ -49,7 +49,7 @@ class _SavedPostsScreenState extends State<SavedPostsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('저장된 게시글'),
-        backgroundColor: const Color(0xFFFFF0DC),
+        backgroundColor: AppColors.background,
         elevation: 0,
       ),
       body: _loading
@@ -81,7 +81,7 @@ class _SavedPostsScreenState extends State<SavedPostsScreen> {
                     padding: const EdgeInsets.only(bottom: 40),
                     itemCount: _posts.length,
                     separatorBuilder: (context, index) =>
-                        const Divider(height: 1, color: Color(0xFFEDE8E3)),
+                        const Divider(height: 1, color: AppColors.divider),
                     itemBuilder: (context, i) {
                       final post = _posts[i];
                       return Dismissible(

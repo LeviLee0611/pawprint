@@ -95,7 +95,7 @@ class _AddPetScreenState extends State<AddPetScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('오류가 발생했어요: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('오류가 발생했어요: $e'), backgroundColor: AppColors.error),
         );
       }
     } finally {

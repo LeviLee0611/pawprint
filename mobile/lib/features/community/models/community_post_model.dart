@@ -9,7 +9,7 @@ class CommunityPost {
   final String? petType; // 'cat' | 'dog'
   final String? location;
   final String? contact;
-  final String status; // 'active' | 'resolved'
+  final String status; // 'open' | 'resolved' | 'hidden'
   final DateTime createdAt;
   final String? ownerName;
   final String? ownerAvatarUrl;
@@ -52,7 +52,7 @@ class CommunityPost {
       petType: json['pet_type'] as String?,
       location: json['location'] as String?,
       contact: json['contact'] as String?,
-      status: (json['status'] as String?) ?? 'active',
+      status: (json['status'] as String?) ?? 'open',
       createdAt: DateTime.parse(json['created_at'] as String),
       ownerName: profile?['display_name'] as String?,
       ownerAvatarUrl: profile?['avatar_url'] as String?,
@@ -72,5 +72,7 @@ class CommunityPost {
     }
   }
 
+  bool get isOpen => status == 'open';
   bool get isResolved => status == 'resolved';
+  bool get isHidden => status == 'hidden';
 }

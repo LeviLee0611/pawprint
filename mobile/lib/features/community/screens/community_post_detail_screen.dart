@@ -28,10 +28,10 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
   int _imageIndex = 0;
 
   static const _catColors = {
-    'lost': Color(0xFFE53935),
-    'found': Color(0xFF1E88E5),
-    'rehome': Color(0xFF43A047),
-    'looking': Color(0xFFFF8F00),
+    'lost': AppColors.error,
+    'found': AppColors.info,
+    'rehome': AppColors.success,
+    'looking': AppColors.warning,
   };
 
   @override
@@ -114,10 +114,10 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                       // 삭제
                       ListTile(
                         leading: const Icon(Icons.delete_outline,
-                            color: Colors.red),
+                            color: AppColors.error),
                         title: const Text('삭제',
                             style: TextStyle(
-                                color: Colors.red,
+                                color: AppColors.error,
                                 fontWeight: FontWeight.w600)),
                         onTap: () async {
                           Navigator.pop(context);
@@ -138,7 +138,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                                         Navigator.pop(context, true),
                                     child: const Text('삭제',
                                         style:
-                                            TextStyle(color: Colors.red))),
+                                            TextStyle(color: AppColors.error))),
                               ],
                             ),
                           );
@@ -154,10 +154,10 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                       // 신고
                       ListTile(
                         leading: const Icon(Icons.flag_outlined,
-                            color: Colors.red),
+                            color: AppColors.textSecondary),
                         title: const Text('신고',
                             style: TextStyle(
-                                color: Colors.red,
+                                color: AppColors.textSecondary,
                                 fontWeight: FontWeight.w600)),
                         onTap: () {
                           Navigator.pop(context);
@@ -197,15 +197,6 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     }
-  }
-
-  String _timeAgo(DateTime dt) {
-    final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 1) return '방금';
-    if (diff.inHours < 1) return '${diff.inMinutes}분 전';
-    if (diff.inDays < 1) return '${diff.inHours}시간 전';
-    if (diff.inDays < 7) return '${diff.inDays}일 전';
-    return DateFormat('M월 d일', 'ko').format(dt);
   }
 
   @override
@@ -259,11 +250,11 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(8),
+                          color: AppColors.brownLight.withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
                         ),
                         child: const Text('해결됨',
-                            style: TextStyle(fontSize: 12, color: Colors.grey)),
+                            style: TextStyle(fontSize: 12, color: AppColors.textHint)),
                       ),
                     ],
                     const Spacer(),
@@ -304,7 +295,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                   ],
                 ),
 
-                const Divider(height: 24, color: Color(0xFFEDE8E3)),
+                const Divider(height: 24, color: AppColors.divider),
 
                 // 펫 정보
                 if (post.petName != null || post.petType != null) ...[
@@ -316,7 +307,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                             AppColors.primaryLight, AppColors.primary),
                       if (post.petName != null)
                         _tag('이름: ${post.petName!}',
-                            const Color(0xFFFFF3EB), AppColors.primary),
+                            AppColors.card, AppColors.primary),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -331,14 +322,14 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF0F4FF),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFBBCEFF)),
+                        color: AppColors.info.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        border: Border.all(color: AppColors.info.withValues(alpha: 0.3)),
                       ),
                       child: Row(
                         children: [
                           const Icon(Icons.location_on_rounded,
-                              color: Color(0xFF1E88E5), size: 20),
+                              color: AppColors.info, size: 20),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Column(
@@ -347,20 +338,18 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                                 const Text('실종 위치',
                                     style: TextStyle(
                                         fontSize: 11,
-                                        color: Color(0xFF1E88E5),
+                                        color: AppColors.info,
                                         fontWeight: FontWeight.w600)),
                                 Text(
                                   post.address ?? '좌표: ${post.latitude!.toStringAsFixed(4)}, ${post.longitude!.toStringAsFixed(4)}',
-                                  style: const TextStyle(
-                                      fontSize: 13,
-                                      color: AppColors.textPrimary),
+                                  style: AppTextStyles.bodySmall,
                                 ),
                               ],
                             ),
                           ),
                           if (post.latitude != null)
                             const Icon(Icons.open_in_new_rounded,
-                                size: 16, color: Color(0xFF1E88E5)),
+                                size: 16, color: AppColors.info),
                         ],
                       ),
                     ),
@@ -371,10 +360,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                 // 내용
                 if (post.content.isNotEmpty) ...[
                   Text(post.content,
-                      style: const TextStyle(
-                          fontSize: 15,
-                          color: AppColors.textPrimary,
-                          height: 1.65)),
+                      style: AppTextStyles.body),
                   const SizedBox(height: 12),
                 ],
 
@@ -383,9 +369,9 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFF3EB),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFFFCCA8)),
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      border: Border.all(color: AppColors.primaryLight),
                     ),
                     child: Row(
                       children: [
@@ -406,7 +392,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
 
                 // 목격 신고 섹션 (실종 글만)
                 if (isLost) ...[
-                  const Divider(height: 24, color: Color(0xFFEDE8E3)),
+                  const Divider(height: 24, color: AppColors.divider),
                   Row(
                     children: [
                       Text(
@@ -435,7 +421,7 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                           label: const Text('발견했어요'),
                           style: TextButton.styleFrom(
                             foregroundColor: Colors.white,
-                            backgroundColor: const Color(0xFFE53935),
+                            backgroundColor: AppColors.error,
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 14, vertical: 8),
                             shape: RoundedRectangleBorder(
@@ -547,7 +533,7 @@ class _SightingCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFEDE8E3)),
+        border: Border.all(color: AppColors.divider),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -583,7 +569,7 @@ class _SightingCard extends StatelessWidget {
               child: Row(
                 children: [
                   const Icon(Icons.location_on_rounded,
-                      color: Color(0xFFE53935), size: 15),
+                      color: AppColors.error, size: 15),
                   const SizedBox(width: 4),
                   Expanded(
                     child: Text(sighting.address!,

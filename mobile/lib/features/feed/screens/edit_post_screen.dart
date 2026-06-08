@@ -72,7 +72,7 @@ class _EditPostScreenState extends State<EditPostScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text('수정 실패: $e'),
-              backgroundColor: Colors.red),
+              backgroundColor: AppColors.error),
         );
       }
     } finally {
@@ -122,17 +122,17 @@ class _EditPostScreenState extends State<EditPostScreen> {
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
                       borderSide:
-                          const BorderSide(color: AppColors.primaryLight)),
+                          const BorderSide(color: AppColors.brownLight)),
                   enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
                       borderSide:
-                          const BorderSide(color: AppColors.primaryLight)),
+                          const BorderSide(color: AppColors.brownLight)),
                   focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
                       borderSide:
-                          const BorderSide(color: AppColors.primary, width: 2)),
+                          const BorderSide(color: AppColors.primary, width: 1.5)),
                   contentPadding: const EdgeInsets.all(16),
                 ),
               ),
@@ -160,6 +160,20 @@ class _EditPostScreenState extends State<EditPostScreen> {
                 ),
                 const SizedBox(height: 12),
               ],
+
+              if (widget.post.imageUrls.length > 1)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.card,
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                  ),
+                  child: const Text(
+                    '사진이 여러 장인 게시글은 수정 시 사진이 첫 번째 한 장으로 교체됩니다.',
+                    style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  ),
+                ),
 
               OutlinedButton.icon(
                 onPressed: _pickImage,

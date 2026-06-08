@@ -297,13 +297,9 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Widget _buildFilterChips() {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFF6EC), Color(0xFFFFFAF5)],
-        ),
-        border: Border(bottom: BorderSide(color: Color(0xFFEBE3DC))),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        border: Border(bottom: BorderSide(color: AppColors.divider)),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -333,7 +329,7 @@ class _FeedScreenState extends State<FeedScreen> {
               height: 18,
               width: 1,
               margin: const EdgeInsets.symmetric(horizontal: 10),
-              color: const Color(0xFFD9CDCA),
+              color: AppColors.brownLight,
             ),
             _FeedFilterChip(
               label: '고양이',
@@ -448,10 +444,10 @@ class _ThreadPost extends StatelessWidget {
   String _timeAgo(DateTime dt) {
     final diff = DateTime.now().difference(dt);
     if (diff.inMinutes < 1) return '방금';
-    if (diff.inHours < 1) return '${diff.inMinutes}분';
-    if (diff.inDays < 1) return '${diff.inHours}시간';
-    if (diff.inDays < 7) return '${diff.inDays}일';
-    return DateFormat('M/d', 'ko').format(dt);
+    if (diff.inHours < 1) return '${diff.inMinutes}분 전';
+    if (diff.inDays < 1) return '${diff.inHours}시간 전';
+    if (diff.inDays < 7) return '${diff.inDays}일 전';
+    return DateFormat('M월 d일', 'ko').format(dt);
   }
 
   @override
@@ -467,20 +463,9 @@ class _ThreadPost extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFFFFFDF8),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF8D6E63).withValues(alpha: 0.09),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-            BoxShadow(
-              color: const Color(0xFF8D6E63).withValues(alpha: 0.04),
-              blurRadius: 3,
-              offset: const Offset(0, 1),
-            ),
-          ],
+          color: AppColors.cardWarm,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          boxShadow: AppShadows.card,
         ),
         child: InkWell(
           onTap: onTap,
@@ -515,9 +500,7 @@ class _ThreadPost extends StatelessWidget {
                             Flexible(
                               child: Text(
                                 post.ownerName ?? '사용자',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 13.5,
+                                style: AppTextStyles.subtitle.copyWith(
                                   color: AppColors.textPrimary,
                                   letterSpacing: -0.2,
                                 ),
@@ -549,7 +532,7 @@ class _ThreadPost extends StatelessWidget {
                     const SizedBox(width: 8),
                     Text(
                       _timeAgo(post.createdAt),
-                      style: const TextStyle(fontSize: 11.5, color: AppColors.textHint),
+                      style: AppTextStyles.caption.copyWith(color: AppColors.textHint),
                     ),
                     GestureDetector(
                       onTap: () => _showPostOptions(context, post: post, isMyPost: isMyPost),
@@ -571,12 +554,7 @@ class _ThreadPost extends StatelessWidget {
                     Expanded(
                       child: Text(
                         post.content,
-                        style: const TextStyle(
-                          fontSize: 14.5,
-                          color: Color(0xFF3A2318),
-                          height: 1.55,
-                          letterSpacing: -0.1,
-                        ),
+                        style: AppTextStyles.body.copyWith(letterSpacing: -0.1),
                         maxLines: hasThumbnail ? 4 : 6,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -589,7 +567,7 @@ class _ThreadPost extends StatelessWidget {
                 ),
 
                 const SizedBox(height: 9),
-                const Divider(height: 1, color: Color(0xFFF2EDE8)),
+                const Divider(height: 1, color: AppColors.divider),
                 const SizedBox(height: 7),
 
                 // ─ 액션 버튼
@@ -600,7 +578,7 @@ class _ThreadPost extends StatelessWidget {
                           ? Icons.favorite_rounded
                           : Icons.favorite_border_rounded,
                       label: post.likesCount > 0 ? '${post.likesCount}' : '',
-                      color: post.isLikedByMe ? const Color(0xFFE53935) : AppColors.textHint,
+                      color: post.isLikedByMe ? AppColors.error : AppColors.textHint,
                       onTap: onLike,
                     ),
                     const SizedBox(width: 16),
@@ -647,7 +625,7 @@ class _Thumbnail extends StatelessWidget {
             width: 88,
             height: 88,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(
+            errorBuilder: (_, _, _) => Container(
               width: 88,
               height: 88,
               color: AppColors.primaryLight,
@@ -721,10 +699,10 @@ void _showPostOptions(
                     const Divider(height: 1),
                     ListTile(
                       leading: const Icon(Icons.flag_outlined,
-                          color: Colors.red),
+                          color: AppColors.error),
                       title: const Text('신고하기',
                           style: TextStyle(
-                              color: Colors.red,
+                              color: AppColors.error,
                               fontWeight: FontWeight.w600)),
                       onTap: () {
                         Navigator.pop(context);
@@ -872,14 +850,14 @@ class _FeedFilterChip extends StatelessWidget {
     final bgColor = selected
         ? AppColors.primary
         : isPet
-            ? const Color(0xFFFFF3EB)
-            : Colors.white;
+            ? AppColors.primaryLight.withValues(alpha: 0.35)
+            : AppColors.surface;
 
     final borderColor = selected
         ? AppColors.primary
         : isPet
-            ? const Color(0xFFEDC9A8)
-            : const Color(0xFFDDD5CF);
+            ? AppColors.primary.withValues(alpha: 0.3)
+            : AppColors.brownLight;
 
     final textColor = selected
         ? Colors.white
@@ -910,7 +888,7 @@ class _FeedFilterChip extends StatelessWidget {
                 ]
               : [
                   BoxShadow(
-                    color: const Color(0xFF8D6E63).withValues(alpha: 0.06),
+                    color: AppColors.brown.withValues(alpha: 0.06),
                     blurRadius: 4,
                     offset: const Offset(0, 1),
                   ),

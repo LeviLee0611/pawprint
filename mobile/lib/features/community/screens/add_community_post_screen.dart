@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../core/services/location_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../services/community_service.dart';
 
@@ -23,7 +23,7 @@ class _AddCommunityPostScreenState extends State<AddCommunityPostScreen> {
 
   late String _category;
   String? _petType;
-  List<File> _imageFiles = [];
+  final List<File> _imageFiles = [];
   bool _submitting = false;
   bool _gettingLocation = false;
   double? _latitude;
@@ -31,9 +31,9 @@ class _AddCommunityPostScreenState extends State<AddCommunityPostScreen> {
   final _addressCtrl = TextEditingController();
 
   static const _categoryOptions = [
-    ('lost', '실종 신고', Color(0xFFE53935)),
-    ('rehome', '입양 보내기', Color(0xFF43A047)),
-    ('looking', '입양 원해요', Color(0xFFFF8F00)),
+    ('lost', '실종 신고', AppColors.error),
+    ('rehome', '입양 보내기', AppColors.success),
+    ('looking', '입양 원해요', AppColors.warning),
   ];
 
   @override
@@ -56,22 +56,20 @@ class _AddCommunityPostScreenState extends State<AddCommunityPostScreen> {
   Future<void> _getCurrentLocation() async {
     setState(() => _gettingLocation = true);
     try {
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
+      final granted = await LocationService.ensurePermission(
+        context,
+        reason: '실종 신고에 위치를 첨부하려면 위치 권한이 필요해요.',
+      );
+      if (!granted) return;
+      final pos = await LocationService.getCurrentPosition();
+      if (pos == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('위치 권한이 필요해요')),
+            const SnackBar(content: Text('위치를 가져올 수 없어요')),
           );
         }
         return;
       }
-      final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
-      );
       setState(() {
         _latitude = pos.latitude;
         _longitude = pos.longitude;
@@ -136,7 +134,7 @@ class _AddCommunityPostScreenState extends State<AddCommunityPostScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('오류: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('오류: $e'), backgroundColor: AppColors.error),
         );
       }
     } finally {
@@ -194,7 +192,7 @@ class _AddCommunityPostScreenState extends State<AddCommunityPostScreen> {
                     duration: const Duration(milliseconds: 180),
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
-                      color: selected ? color : Colors.white,
+                      color: selected ? color : AppColors.surface,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: selected ? color : AppColors.brownLight,

@@ -80,7 +80,7 @@ class _AddPostScreenState extends State<AddPostScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text('오류가 발생했어요: $e'),
-              backgroundColor: Colors.red),
+              backgroundColor: AppColors.error),
         );
       }
     } finally {
@@ -91,9 +91,9 @@ class _AddPostScreenState extends State<AddPostScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAF5),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFFFF0DC),
+        backgroundColor: AppColors.background,
         title: const Text('글쓰기'),
         actions: [
           Padding(
@@ -144,7 +144,7 @@ class _AddPostScreenState extends State<AddPostScreen> {
                             decoration: BoxDecoration(
                               color: selected
                                   ? AppColors.primary
-                                  : Colors.white,
+                                  : AppColors.surface,
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
                                   color: selected
@@ -187,14 +187,14 @@ class _AddPostScreenState extends State<AddPostScreen> {
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: AppColors.primaryLight)),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      borderSide: const BorderSide(color: AppColors.brownLight)),
                   enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: AppColors.primaryLight)),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      borderSide: const BorderSide(color: AppColors.brownLight)),
                   focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: AppColors.primary, width: 2)),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
                   contentPadding: const EdgeInsets.all(16),
                 ),
               ),
@@ -212,7 +212,7 @@ class _AddPostScreenState extends State<AddPostScreen> {
                       child: Stack(
                         children: [
                           ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
                             child: Image.file(
                               _imageFiles[i],
                               width: 100,

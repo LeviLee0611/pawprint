@@ -141,12 +141,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 child: ListTile(
                   leading: Icon(
                     _isBlocked ? Icons.lock_open_outlined : Icons.block_outlined,
-                    color: Colors.red,
+                    color: AppColors.error,
                   ),
                   title: Text(
                     _isBlocked ? '차단 해제' : '차단',
                     style: const TextStyle(
-                        color: Colors.red, fontWeight: FontWeight.w600),
+                        color: AppColors.error, fontWeight: FontWeight.w600),
                   ),
                   subtitle: Text(
                     _isBlocked
@@ -204,7 +204,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             child: Text(
               _isBlocked ? '해제' : '차단',
               style: const TextStyle(
-                  color: Colors.red, fontWeight: FontWeight.bold),
+                  color: AppColors.error, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -219,18 +219,33 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final avatarUrl = widget.initialAvatarUrl;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(name,
-            style: const TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: false,
-        actions: _isMyProfile
-            ? null
-            : [
-                IconButton(
-                  icon: const Icon(Icons.more_vert),
-                  onPressed: () => _showOptions(context),
-                ),
-              ],
+      backgroundColor: AppColors.background,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFFFF0DC), Color(0xFFFFFAF5)],
+            ),
+          ),
+          child: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            title: Text(name,
+                style: const TextStyle(fontWeight: FontWeight.bold)),
+            centerTitle: false,
+            actions: _isMyProfile
+                ? null
+                : [
+                    IconButton(
+                      icon: const Icon(Icons.more_vert),
+                      onPressed: () => _showOptions(context),
+                    ),
+                  ],
+          ),
+        ),
       ),
       body: _loading
           ? const SingleChildScrollView(

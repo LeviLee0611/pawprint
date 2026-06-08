@@ -22,6 +22,24 @@ create table if not exists public.community_posts (
 
 alter table public.community_posts enable row level security;
 
+-- updated_at 자동 갱신 트리거
+create or replace function public.set_community_posts_updated_at()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_community_posts_updated_at on public.community_posts;
+create trigger trg_community_posts_updated_at
+  before update on public.community_posts
+  for each row execute function public.set_community_posts_updated_at();
+
 drop policy if exists "커뮤니티 게시글 조회" on public.community_posts;
 create policy "커뮤니티 게시글 조회" on public.community_posts
   for select using (status != 'hidden');

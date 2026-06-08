@@ -23,8 +23,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
   static const _categories = ['전체', '실종', '나눔&입양'];
   static const _categoryColors = [
     AppColors.primary,
-    Color(0xFFE53935),
-    Color(0xFF43A047),
+    AppColors.error,
+    AppColors.success,
   ];
   static const _categoryIcons = [
     Icons.grid_view_rounded,
@@ -88,9 +88,9 @@ class _CommunityScreenState extends State<CommunityScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFFFFAF5),
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFFFFF0DC),
+        backgroundColor: AppColors.background,
         title: const Text('나눔 & 실종',
             style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: false,
@@ -128,14 +128,16 @@ class _CommunityScreenState extends State<CommunityScreen> {
   Widget _buildCategoryBar() {
     return Container(
       height: 48,
-      color: const Color(0xFFFFFAF5),
+      color: AppColors.background,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         itemCount: _categories.length,
         itemBuilder: (context, index) {
           final selected = _selectedCategory == index;
-          return GestureDetector(
+          return InkWell(
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+            splashColor: AppColors.primaryLight.withValues(alpha: 0.25),
             onTap: () => _applyCategory(index),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
@@ -171,8 +173,10 @@ class _CommunityScreenState extends State<CommunityScreen> {
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 100),
       itemCount: _posts.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (context, i) => GestureDetector(
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      itemBuilder: (context, i) => InkWell(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        splashColor: AppColors.primaryLight.withValues(alpha: 0.25),
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
@@ -253,10 +257,10 @@ class _CommunityCard extends StatelessWidget {
   const _CommunityCard({required this.post});
 
   static const _catColors = {
-    'lost': Color(0xFFE53935),
-    'found': Color(0xFF1E88E5),
-    'rehome': Color(0xFF43A047),
-    'looking': Color(0xFFFF8F00),
+    'lost': AppColors.error,
+    'found': AppColors.info,
+    'rehome': AppColors.success,
+    'looking': AppColors.warning,
   };
 
   String _timeAgo(DateTime dt) {
@@ -265,7 +269,7 @@ class _CommunityCard extends StatelessWidget {
     if (diff.inHours < 1) return '${diff.inMinutes}분 전';
     if (diff.inDays < 1) return '${diff.inHours}시간 전';
     if (diff.inDays < 7) return '${diff.inDays}일 전';
-    return DateFormat('M/d', 'ko').format(dt);
+    return DateFormat('M월 d일', 'ko').format(dt);
   }
 
   @override
@@ -275,15 +279,9 @@ class _CommunityCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFDF8),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF8D6E63).withValues(alpha: 0.09),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: AppColors.cardWarm,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        boxShadow: AppShadows.card,
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -312,17 +310,16 @@ class _CommunityCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(8),
+                      color: AppColors.brownLight.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
                     ),
                     child: const Text('해결됨',
-                        style: TextStyle(fontSize: 11, color: Colors.grey)),
+                        style: TextStyle(fontSize: 11, color: AppColors.textHint)),
                   ),
                 ],
                 const Spacer(),
                 Text(_timeAgo(post.createdAt),
-                    style: const TextStyle(
-                        fontSize: 11.5, color: AppColors.textHint)),
+                    style: AppTextStyles.caption),
               ],
             ),
             const SizedBox(height: 9),
@@ -337,10 +334,7 @@ class _CommunityCard extends StatelessWidget {
                     children: [
                       Text(
                         post.title,
-                        style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary),
+                        style: AppTextStyles.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -348,10 +342,7 @@ class _CommunityCard extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           post.content,
-                          style: const TextStyle(
-                              fontSize: 13.5,
-                              color: AppColors.textSecondary,
-                              height: 1.45),
+                          style: AppTextStyles.bodySmall,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -368,7 +359,7 @@ class _CommunityCard extends StatelessWidget {
                       width: 76,
                       height: 76,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => const SizedBox(),
+                      errorBuilder: (_, _, _) => const SizedBox(),
                     ),
                   ),
                 ],
@@ -385,9 +376,9 @@ class _CommunityCard extends StatelessWidget {
                   if (post.petType != null)
                     _tag(post.petType == 'cat' ? '🐱 고양이' : '🐶 강아지', AppColors.primaryLight, AppColors.primary),
                   if (post.petName != null)
-                    _tag(post.petName!, const Color(0xFFFFF3EB), AppColors.primary),
+                    _tag(post.petName!, AppColors.card, AppColors.primary),
                   if (post.location != null)
-                    _tag('📍 ${post.location!}', const Color(0xFFF0F4FF), const Color(0xFF1E88E5)),
+                    _tag('📍 ${post.location!}', AppColors.info.withValues(alpha: 0.1), AppColors.info),
                 ],
               ),
             ],
@@ -409,8 +400,7 @@ class _CommunityCard extends StatelessWidget {
                 const SizedBox(width: 6),
                 Text(
                   post.ownerName ?? '사용자',
-                  style: const TextStyle(
-                      fontSize: 12, color: AppColors.textSecondary),
+                  style: AppTextStyles.caption,
                 ),
               ],
             ),

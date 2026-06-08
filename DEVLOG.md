@@ -2,7 +2,33 @@
 
 ## 2026-06-08
 
-### 한 일
+### 한 일 (오후)
+
+**UI 디자인 시스템 전체 적용 (~20개 파일)**
+- 모든 화면의 하드코딩된 `Color()`, `Colors.red`, 폰트 크기 등 → `AppColors`, `AppTextStyles`, `AppSpacing`, `AppRadius`, `AppShadows` 상수로 통일
+- `AppShadows.card`: 검정 틴트(`0x17000000`) → 갈색 틴트(`0x178D6E63`) 수정
+- 주요 적용 파일: `feed_screen`, `post_detail_screen`, `community_screen`, `community_post_detail_screen`, `search_screen`, `notification_screen`, `settings_screen`, `pet_screen`, `reminder_screen`, `calendar_screen`, `login_screen` 외 다수
+- `GestureDetector` → `InkWell(splashColor: AppColors.primaryLight)` 터치 피드백 개선
+
+**피드 & 프로필 상단 그라데이션 통일**
+- 피드 AppBar, 프로필 3종(ProfileScreen/MyProfileScreen/UserProfileScreen) 모두 동일 그라데이션 적용 `[FFF0DC → FFFAF5]`
+- `ProfileBanner`: 아바타+통계 영역 뿐만 아니라 닉네임/팔로우 버튼/펫 칩 영역까지 그라데이션 확장
+- `ProfileBannerSkeleton`: 실제 배너와 동일한 그라데이션 구조로 업데이트
+
+**네비게이션 바 아이콘 색상 개선**
+- 미선택 아이콘 `AppColors.brownLight(D7CCC8)` → `AppColors.textSecondary(8D6E63)` (더 어둡고 선명하게)
+
+**위치 권한 온보딩 추가**
+- `LocationService` 신규 생성 (`core/services/location_service.dart`)
+  - `requestOnboardingIfNeeded()`: 최초 로그인 후 1회만 OS 위치 권한 다이얼로그 표시 (SharedPreferences로 중복 방지)
+  - `ensurePermission(context, reason:)`: 위치 필요 기능 진입 시 강제 요청, 영구 거부 시 설정 앱 안내
+  - `getCurrentPosition()`: 권한 있을 때 현재 위치 반환
+- `_PetGate.initState()`에서 `showForceUpdateDialogIfNeeded` 완료 후 위치 권한 요청 연결
+- AndroidManifest에 이미 `ACCESS_FINE_LOCATION`, `ACCESS_COARSE_LOCATION` 있었음
+
+---
+
+### 한 일 (오전)
 
 **피드 카드 레이아웃 개편 (뉴스형)**
 - 전체 너비 이미지 카드 → 썸네일 우측 88×88 뉴스형으로 변경

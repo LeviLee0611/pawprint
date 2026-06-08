@@ -108,7 +108,7 @@ class _EditPetScreenState extends State<EditPetScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content: Text('오류가 발생했어요: $e'),
-              backgroundColor: Colors.red),
+              backgroundColor: AppColors.error),
         );
       }
     } finally {

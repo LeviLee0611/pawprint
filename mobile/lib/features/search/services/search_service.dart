@@ -24,6 +24,7 @@ class SearchService {
         .from('posts')
         .select(_postSelect)
         .ilike('content', '%$query%')
+        .eq('is_hidden', false)
         .order('created_at', ascending: false)
         .limit(30);
 

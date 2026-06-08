@@ -141,19 +141,31 @@
 
 ## 미구현 / 예정
 
+### 🔜 다음 (2026-06-09 — iOS 작업 예정)
+- [ ] **iOS 빌드 설정** — Xcode 프로젝트 설정, Info.plist 권한 추가
+  - `NSLocationWhenInUseUsageDescription` (위치 권한 문구)
+  - `NSPhotoLibraryUsageDescription` (이미지 피커)
+  - `NSCameraUsageDescription` (카메라)
+- [ ] **iOS Podfile / CocoaPods** — geolocator, firebase_messaging, kakao SDK 의존성 확인
+- [ ] **카카오 로그인 iOS 설정** — URL Scheme, Info.plist `LSApplicationQueriesSchemes`
+- [ ] **iOS 시뮬레이터 or 실기기 빌드 테스트** — 크래시·레이아웃 이슈 확인
+- [ ] **피드 알고리즘 방향 결정 후 구현** — 팔로잉 기반 + 팔로잉 0명 fallback 유력
+
 ### 우선순위 높음
 - [ ] 영상 업로드 (첫 프레임 썸네일 검열 방식)
 - [ ] 회원탈퇴 완전 처리 (`auth.users` 삭제 Edge Function + Storage 정리)
-- [ ] 펫 편집 기능 (이름/사진/품종 수정)
 - [ ] 다중 펫 캘린더 스위처
+- [ ] `LocationService.ensurePermission()` — 실종·발견 글쓰기 진입 시 연결
 
 ### 우선순위 중간
-- [ ] 푸시 알림 (실종 목격 신고 시 위치 기반 알림)
+- [ ] 푸시 알림 — 실종 목격 신고 시 위치 기반 알림
 - [ ] 커뮤니티 카테고리 확장 (꿀팁/정보, 질문/고민)
 - [ ] 글 수정 시 이미지 교체 + 검열 적용
+- [ ] 좋아요·저장 버튼 애니메이션 (ScaleTransition)
 
 ### MVP 이후
 - [ ] AdMob 광고 연동
 - [ ] 프리미엄 구독 (펫 3마리 이상, 고급 통계)
 - [ ] Firebase App Distribution 테스트 배포
-- [ ] iOS 빌드 및 앱스토어 등록
+- [ ] 앱스토어 등록 (iOS)
+- [ ] Play Store 등록 (Android) — AAB 빌드 + 정식 서명 키

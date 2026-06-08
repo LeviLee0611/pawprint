@@ -68,7 +68,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       title: '정말 탈퇴하시겠어요?',
       content: '탈퇴하면 등록된 펫, 기록, 게시글이 모두 영구 삭제되며\n복구할 수 없어요.',
       confirmLabel: '탈퇴하기',
-      confirmColor: Colors.red,
+      confirmColor: AppColors.error,
     );
     if (ok != true || !mounted) return;
 
@@ -294,7 +294,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _navTile(
               icon: Icons.admin_panel_settings_outlined,
               label: '신고 처리',
-              iconColor: Colors.red,
+              iconColor: AppColors.error,
               onTap: () => Navigator.push(context,
                   MaterialPageRoute(builder: (_) => const AdminScreen())),
             ),
@@ -309,8 +309,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _navTile(
             icon: Icons.person_remove_outlined,
             label: '회원탈퇴',
-            labelColor: Colors.red,
-            iconColor: Colors.red,
+            labelColor: AppColors.error,
+            iconColor: AppColors.error,
             onTap: _deleteAccount,
           ),
         ],

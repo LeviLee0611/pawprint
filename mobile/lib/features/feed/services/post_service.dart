@@ -238,7 +238,11 @@ class PostService {
     try {
       final data = await _supabase
           .from('posts')
-          .update({'content': content, 'image_url': newImageUrl})
+          .update({
+            'content': content,
+            'image_url': newImageUrl,
+            'image_urls': newImageUrl != null ? [newImageUrl] : [],
+          })
           .eq('id', postId)
           .select(_postSelect)
           .single();

@@ -112,10 +112,10 @@ class _PetScreenState extends State<PetScreen> {
                     const Divider(height: 1),
                     ListTile(
                       leading: const Icon(Icons.delete_outline,
-                          color: Colors.red),
+                          color: AppColors.error),
                       title: const Text('삭제',
                           style: TextStyle(
-                              color: Colors.red,
+                              color: AppColors.error,
                               fontWeight: FontWeight.w600)),
                       onTap: () async {
                         Navigator.pop(context);
@@ -167,7 +167,7 @@ class _PetScreenState extends State<PetScreen> {
             onPressed: () => Navigator.pop(context, true),
             child: const Text('삭제',
                 style: TextStyle(
-                    color: Colors.red, fontWeight: FontWeight.bold)),
+                    color: AppColors.error, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

@@ -128,7 +128,7 @@ class _NotificationScreenState extends State<NotificationScreen> {
                         itemCount: _notifications.length,
                         separatorBuilder: (_, _) => const Divider(
                             height: 1,
-                            color: Color(0xFFEDE8E3),
+                            color: AppColors.divider,
                             indent: 72),
                         itemBuilder: (context, index) {
                           final n = _notifications[index];
@@ -280,7 +280,7 @@ class _NotificationTile extends StatelessWidget {
     switch (notification.type) {
       case NotificationType.like:
         return const Icon(Icons.favorite_rounded,
-            size: 18, color: Color(0xFFE53935));
+            size: 18, color: AppColors.error);
       case NotificationType.comment:
         return const Icon(Icons.chat_bubble_rounded,
             size: 18, color: AppColors.primary);

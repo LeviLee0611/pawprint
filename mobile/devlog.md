@@ -1,8 +1,40 @@
-# 포포와 토토 Dev Log
+# 댕냥스토리 Dev Log
 
 ---
 
-## 2026-06-02
+## 2026-06-08
+
+### ✅ 디자인 시스템 통일
+- 전체 화면 (~20개 파일) 하드코딩 색상·폰트 → `AppColors` / `AppTextStyles` / `AppSpacing` / `AppRadius` / `AppShadows` 상수 교체 완료
+- `AppShadows.card` 갈색 틴트 그림자로 수정 (`0x17000000` → `0x178D6E63`)
+- `GestureDetector` → `InkWell` 터치 피드백 개선 (커뮤니티 목록 등)
+
+### ✅ 피드·프로필 상단 그라데이션 통일
+- 피드 AppBar + 프로필 3종 AppBar 동일 그라데이션 `[FFF0DC → FFFAF5]`
+- `ProfileBanner`: 닉네임/팔로우/펫 영역까지 그라데이션 확장 (기존 흰색 → 그라데이션)
+- `ProfileBannerSkeleton`: 실제 배너와 동일 구조로 통일
+
+### ✅ 네비바 아이콘 가시성 개선
+- 미선택 아이콘 색 `D7CCC8` → `8D6E63` (`AppColors.textSecondary`)
+
+### ✅ 위치 권한 온보딩
+- `LocationService` 신규: `requestOnboardingIfNeeded()` / `ensurePermission()` / `getCurrentPosition()`
+- 최초 로그인 후 알림 권한 다이얼로그에 이어 위치 권한 OS 다이얼로그 1회 표시
+- 위치 필수 기능(실종·발견 등) 진입 시 `ensurePermission()` 호출로 강제 요청
+- `geolocator` / `shared_preferences` 이미 설치돼 있었음
+
+---
+
+### 💬 피드 방향 논의
+- 시간순 피드의 "콘텐츠 매몰" 문제 → 팔로잉 기반 + fallback(팔로잉 0명이면 전체) 방식 검토 중
+- 인스타그램 초기 → 시간순 → 2016 알고리즘 전환 흐름 참고
+- 결정 보류 중, 다음 세션에서 구현 예정
+
+---
+
+## 2026-06-05 작업 예정
+
+### 🎨 UX 인터랙션
 
 ### 신규 기능
 - **검색** — 유저 이름 / 게시글 내용 검색, 400ms 디바운스, race condition 방어

@@ -198,7 +198,7 @@ class _SearchScreenState extends State<SearchScreen>
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: _users.length,
       separatorBuilder: (_, _) =>
-          const Divider(height: 1, color: Color(0xFFEDE8E3), indent: 72),
+          const Divider(height: 1, color: AppColors.divider, indent: 72),
       itemBuilder: (context, index) => _UserTile(
         user: _users[index],
         isFollowing: _followStates[_users[index]['id'] as String] ?? false,
@@ -229,7 +229,7 @@ class _SearchScreenState extends State<SearchScreen>
       padding: const EdgeInsets.only(bottom: 80),
       itemCount: _posts.length,
       separatorBuilder: (_, _) =>
-          const Divider(height: 1, color: Color(0xFFEDE8E3)),
+          const Divider(height: 1, color: AppColors.divider),
       itemBuilder: (context, index) => _PostTile(
         post: _posts[index],
         onTap: () => Navigator.push(
@@ -460,7 +460,7 @@ class _PostTile extends StatelessWidget {
                             : Icons.favorite_border_rounded,
                         size: 15,
                         color: post.isLikedByMe
-                            ? const Color(0xFFE53935)
+                            ? AppColors.error
                             : AppColors.textHint,
                       ),
                       if (post.likesCount > 0) ...[
