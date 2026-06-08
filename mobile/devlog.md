@@ -25,6 +25,19 @@
 
 ---
 
+### ✅ 그라데이션 AppBar 전체 탭 통일
+- 나눔&실종, 검색 화면 상단 그라데이션 적용 → 모든 탭 상단 동일 룩
+
+### ✅ 관리자 화면 community_post 신고 처리
+- community_post 신고 → '커뮤니티 글' 라벨 + 내용 보기 + 삭제 정상 동작
+- `CommunityService.getPostById()` 신규
+
+### ✅ Codex 피드백 반영 (0 issues)
+- 검색 숨김 필터, 관리자 이미지 삭제, 수정 다중 이미지 동기화
+- LocationService 커뮤니티 화면 연결, 온보딩 강제 요청 제거
+- status 모델 통일, updated_at 트리거, search_path 보정
+- flutter analyze 23 → 0 issues
+
 ### 💬 피드 방향 논의
 - 시간순 피드의 "콘텐츠 매몰" 문제 → 팔로잉 기반 + fallback(팔로잉 0명이면 전체) 방식 검토 중
 - 인스타그램 초기 → 시간순 → 2016 알고리즘 전환 흐름 참고

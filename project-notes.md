@@ -151,6 +151,13 @@
 - [ ] **iOS 시뮬레이터 or 실기기 빌드 테스트** — 크래시·레이아웃 이슈 확인
 - [ ] **피드 알고리즘 방향 결정 후 구현** — 팔로잉 기반 + 팔로잉 0명 fallback 유력
 
+### ✅ 2026-06-08 완료
+- 전체 화면 디자인 시스템 통일 (AppColors/AppTextStyles/AppSpacing/AppRadius/AppShadows)
+- 모든 탭 상단 그라데이션 AppBar 통일
+- LocationService 신규 (ensurePermission / getCurrentPosition)
+- Codex 피드백 전체 반영 + flutter analyze 0 issues
+- community_posts DB 보정 마이그레이션 실행 완료
+
 ### 우선순위 높음
 - [ ] 영상 업로드 (첫 프레임 썸네일 검열 방식)
 - [ ] 회원탈퇴 완전 처리 (`auth.users` 삭제 Edge Function + Storage 정리)

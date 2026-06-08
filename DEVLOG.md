@@ -2,6 +2,25 @@
 
 ## 2026-06-08
 
+### 한 일 (저녁)
+
+**나눔&실종 · 검색 상단 그라데이션 AppBar 적용**
+- 피드·프로필과 동일한 `[FFF0DC → FFFAF5]` 그라데이션 전체 탭 통일
+- 검색은 TabBar 포함 높이 `kToolbarHeight + kTextTabBarHeight` 처리
+
+**관리자 화면 community_post 신고 처리 수정**
+- 기존: community_post 신고가 '댓글'로 표시, 내용 보기/삭제 불가
+- 라벨 '피드 글' / '커뮤니티 글' / '기타' 분기
+- 내용 보기 → `CommunityPostDetailScreen` 연결
+- 삭제 → `_deleteCommunityPost()` + `CommunityService.getPostById()` 추가
+
+**DB 마이그레이션 Supabase 실행 완료**
+- community_posts 기존 테이블 보정 (image_urls, address, lat/lng, updated_at, status check)
+- updated_at 자동 갱신 트리거
+- auto_hide_on_reports 함수 `set search_path = public` 보정
+
+---
+
 ### 한 일 (오후)
 
 **UI 디자인 시스템 전체 적용 (~20개 파일)**
