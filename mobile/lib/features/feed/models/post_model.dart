@@ -3,7 +3,7 @@ class Post {
   final String ownerId;
   final String? petId;
   final String content;
-  final String? imageUrl;
+  final List<String> imageUrls;
   final int likesCount;
   final int commentsCount;
   final bool isLikedByMe;
@@ -14,12 +14,14 @@ class Post {
   final String? petName;
   final String? petType;
 
+  String? get imageUrl => imageUrls.isNotEmpty ? imageUrls.first : null;
+
   const Post({
     required this.id,
     required this.ownerId,
     this.petId,
     required this.content,
-    this.imageUrl,
+    this.imageUrls = const [],
     required this.likesCount,
     required this.commentsCount,
     this.isLikedByMe = false,
@@ -40,7 +42,7 @@ class Post {
       ownerId: json['owner_id'] as String,
       petId: json['pet_id'] as String?,
       content: json['content'] as String,
-      imageUrl: json['image_url'] as String?,
+      imageUrls: _parseImageUrls(json),
       likesCount: (json['likes_count'] as int?) ?? 0,
       commentsCount: (json['comments_count'] as int?) ?? 0,
       isLikedByMe: isLikedByMe,
@@ -53,9 +55,20 @@ class Post {
     );
   }
 
+  static List<String> _parseImageUrls(Map<String, dynamic> json) {
+    final arr = json['image_urls'];
+    if (arr is List && arr.isNotEmpty) {
+      return List<String>.from(arr);
+    }
+    final single = json['image_url'] as String?;
+    if (single != null) return [single];
+    return const [];
+  }
+
   Post copyWith({
     String? content,
-    String? imageUrl,
+    List<String>? imageUrls,
+    bool clearImages = false,
     bool clearImage = false,
     int? likesCount,
     int? commentsCount,
@@ -71,7 +84,9 @@ class Post {
         ownerId: ownerId,
         petId: petId,
         content: content ?? this.content,
-        imageUrl: clearImage ? null : imageUrl ?? this.imageUrl,
+        imageUrls: (clearImages || clearImage)
+            ? []
+            : imageUrls ?? this.imageUrls,
         likesCount: likesCount ?? this.likesCount,
         commentsCount: commentsCount ?? this.commentsCount,
         isLikedByMe: isLikedByMe ?? this.isLikedByMe,

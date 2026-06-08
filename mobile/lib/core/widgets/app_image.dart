@@ -3,23 +3,36 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../utils/image_util.dart';
 
-/// 피드 게시글 이미지
+/// 피드 게시글 이미지 — 원본 비율 유지
 class AppPostImage extends StatelessWidget {
   final String url;
-  final double height;
+  final BoxFit fit;
+  final double? fixedHeight;
+  final Color background;
 
-  const AppPostImage({super.key, required this.url, this.height = 220});
+  const AppPostImage({
+    super.key,
+    required this.url,
+    this.fit = BoxFit.fitWidth,
+    this.fixedHeight,
+    this.background = const Color(0xFFFFF8F2),
+  });
 
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
-      child: Image.network(
-        url,
+      child: Container(
         width: double.infinity,
-        height: height,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, _) => const SizedBox(),
+        height: fixedHeight,
+        color: background,
+        child: Image.network(
+          url,
+          width: double.infinity,
+          height: fixedHeight,
+          fit: fixedHeight != null ? BoxFit.contain : fit,
+          errorBuilder: (context, error, _) => const SizedBox(),
+        ),
       ),
     );
   }

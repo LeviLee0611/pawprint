@@ -296,62 +296,76 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Widget _buildFilterChips() {
-    const items = [
-      (_FeedFilter.all, '전체'),
-      (_FeedFilter.following, '팔로잉'),
-      (_FeedFilter.popular, '인기 🔥'),
-      (_FeedFilter.cat, '고양이 🐱'),
-      (_FeedFilter.dog, '강아지 🐶'),
-    ];
     return Container(
       decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFEDE8E3))),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFFFFF6EC), Color(0xFFFFFAF5)],
+        ),
+        border: Border(bottom: BorderSide(color: Color(0xFFEBE3DC))),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         child: Row(
-          children: items.map((item) {
-            final selected = _filter == item.$1;
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
-                label: Text(item.$2),
-                selected: selected,
-                onSelected: (_) {
-                  setState(() => _filter = item.$1);
-                  _loadPosts(reset: true);
-                },
-                selectedColor: AppColors.primary,
-                backgroundColor: AppColors.surface,
-                labelStyle: TextStyle(
-                  color: selected
-                      ? Colors.white
-                      : AppColors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 13,
-                ),
-                side: BorderSide(
-                  color: selected
-                      ? AppColors.primary
-                      : AppColors.brownLight,
-                ),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20)),
-                showCheckmark: false,
-              ),
-            );
-          }).toList(),
+          children: [
+            _FeedFilterChip(
+              label: '전체',
+              selected: _filter == _FeedFilter.all,
+              onTap: () => _applyFilter(_FeedFilter.all),
+            ),
+            const SizedBox(width: 7),
+            _FeedFilterChip(
+              label: '팔로잉',
+              icon: Icons.people_outline_rounded,
+              selected: _filter == _FeedFilter.following,
+              onTap: () => _applyFilter(_FeedFilter.following),
+            ),
+            const SizedBox(width: 7),
+            _FeedFilterChip(
+              label: '인기',
+              icon: Icons.local_fire_department_rounded,
+              selected: _filter == _FeedFilter.popular,
+              onTap: () => _applyFilter(_FeedFilter.popular),
+            ),
+            Container(
+              height: 18,
+              width: 1,
+              margin: const EdgeInsets.symmetric(horizontal: 10),
+              color: const Color(0xFFD9CDCA),
+            ),
+            _FeedFilterChip(
+              label: '고양이',
+              emoji: '🐱',
+              selected: _filter == _FeedFilter.cat,
+              isPet: true,
+              onTap: () => _applyFilter(_FeedFilter.cat),
+            ),
+            const SizedBox(width: 7),
+            _FeedFilterChip(
+              label: '강아지',
+              emoji: '🐶',
+              selected: _filter == _FeedFilter.dog,
+              isPet: true,
+              onTap: () => _applyFilter(_FeedFilter.dog),
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  void _applyFilter(_FeedFilter filter) {
+    setState(() => _filter = filter);
+    _loadPosts(reset: true);
   }
 
   Widget _buildFeed() {
     final posts = _filteredPosts;
     return ListView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.only(bottom: 100),
+      padding: const EdgeInsets.only(top: 8, bottom: 100),
       itemCount: posts.length + (_loadingMore ? 1 : 0),
       itemBuilder: (context, index) {
         if (index == posts.length) {
@@ -364,36 +378,29 @@ class _FeedScreenState extends State<FeedScreen> {
         }
         final post = posts[index];
         final rawIndex = _posts.indexOf(post);
-        final isLast = index < posts.length - 1;
-        return Column(
-          children: [
-            _ThreadPost(
-              post: post,
-              onLike: () => _toggleLike(rawIndex),
-              onSave: () => _toggleSave(rawIndex),
-              onTap: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => PostDetailScreen(post: post),
-                  ),
-                );
-                await _loadAll();
-              },
-              onProfileTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => UserProfileScreen(
-                    userId: post.ownerId,
-                    initialName: post.ownerName,
-                    initialAvatarUrl: post.ownerAvatarUrl,
-                  ),
-                ),
+        return _ThreadPost(
+          post: post,
+          onLike: () => _toggleLike(rawIndex),
+          onSave: () => _toggleSave(rawIndex),
+          onTap: () async {
+            await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => PostDetailScreen(post: post),
+              ),
+            );
+            await _loadAll();
+          },
+          onProfileTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => UserProfileScreen(
+                userId: post.ownerId,
+                initialName: post.ownerName,
+                initialAvatarUrl: post.ownerAvatarUrl,
               ),
             ),
-            if (isLast)
-              const Divider(height: 1, color: Color(0xFFEDE8E3)),
-          ],
+          ),
         );
       },
     );
@@ -421,7 +428,7 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 }
 
-// ── 스레드 스타일 포스트 ─────────────────────────────────
+// ── 뉴스형 카드 포스트 ──────────────────────────────────
 
 class _ThreadPost extends StatelessWidget {
   final Post post;
@@ -452,140 +459,222 @@ class _ThreadPost extends StatelessWidget {
     final petLabel = post.petName != null
         ? '${post.petType == 'cat' ? '🐱' : '🐶'} ${post.petName}'
         : null;
-
     final myId = Supabase.instance.client.auth.currentUser?.id;
     final isMyPost = post.ownerId == myId;
+    final hasThumbnail = post.imageUrls.isNotEmpty;
 
-    return InkWell(
-      onTap: onTap,
-      splashColor: AppColors.primaryLight.withValues(alpha: 0.3),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 왼쪽: 아바타
-            GestureDetector(
-              onTap: onProfileTap,
-              child: _Avatar(url: post.ownerAvatarUrl, size: 40),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFDF8),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF8D6E63).withValues(alpha: 0.09),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
             ),
-            const SizedBox(width: 12),
-
-            // 오른쪽: 내용 전체
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // 이름 + 펫 + 시간
-                  Row(
-                    children: [
-                      GestureDetector(
-                        onTap: onProfileTap,
-                        child: Text(
-                          post.ownerName ?? '사용자',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              color: AppColors.textPrimary),
-                        ),
-                      ),
-                      if (petLabel != null) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 7, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryLight,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(petLabel,
-                              style: const TextStyle(
-                                  fontSize: 11,
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.w600)),
-                        ),
-                      ],
-                      const Spacer(),
-                      Text(_timeAgo(post.createdAt),
-                          style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textHint)),
-                      const SizedBox(width: 4),
-                      GestureDetector(
-                        onTap: () => _showPostOptions(
-                          context,
-                          post: post,
-                          isMyPost: isMyPost,
-                        ),
-                        child: const Icon(Icons.more_vert,
-                            size: 18, color: AppColors.textHint),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 5),
-
-                  // 본문
-                  Text(
-                    post.content,
-                    style: const TextStyle(
-                        fontSize: 14.5,
-                        color: AppColors.textPrimary,
-                        height: 1.5),
-                    maxLines: 6,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-
-                  // 이미지
-                  if (post.imageUrl != null) ...[
-                    const SizedBox(height: 10),
-                    AppPostImage(url: post.imageUrl!),
-                  ],
-
-                  const SizedBox(height: 10),
-
-                  // 액션 버튼
-                  Row(
-                    children: [
-                      _ActionBtn(
-                        icon: post.isLikedByMe
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_border_rounded,
-                        label: post.likesCount > 0
-                            ? '${post.likesCount}'
-                            : '',
-                        color: post.isLikedByMe
-                            ? const Color(0xFFE53935)
-                            : AppColors.textHint,
-                        onTap: onLike,
-                      ),
-                      const SizedBox(width: 20),
-                      _ActionBtn(
-                        icon: Icons.chat_bubble_outline_rounded,
-                        label: post.commentsCount > 0
-                            ? '${post.commentsCount}'
-                            : '',
-                        color: AppColors.textHint,
-                        onTap: onTap,
-                      ),
-                      const Spacer(),
-                      _ActionBtn(
-                        icon: post.isSavedByMe
-                            ? Icons.bookmark_rounded
-                            : Icons.bookmark_border_rounded,
-                        label: '',
-                        color: post.isSavedByMe
-                            ? AppColors.primary
-                            : AppColors.textHint,
-                        onTap: onSave,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+            BoxShadow(
+              color: const Color(0xFF8D6E63).withValues(alpha: 0.04),
+              blurRadius: 3,
+              offset: const Offset(0, 1),
             ),
           ],
         ),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          splashColor: AppColors.primaryLight.withValues(alpha: 0.25),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ─ 헤더: 아바타 + 이름 + 펫칩 + 시간 + 더보기
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    GestureDetector(
+                      onTap: onProfileTap,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.primaryLight, width: 2),
+                        ),
+                        child: _Avatar(url: post.ownerAvatarUrl, size: 34),
+                      ),
+                    ),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: onProfileTap,
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                post.ownerName ?? '사용자',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 13.5,
+                                  color: AppColors.textPrimary,
+                                  letterSpacing: -0.2,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (petLabel != null) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  petLabel,
+                                  style: const TextStyle(
+                                    fontSize: 10.5,
+                                    color: AppColors.primary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _timeAgo(post.createdAt),
+                      style: const TextStyle(fontSize: 11.5, color: AppColors.textHint),
+                    ),
+                    GestureDetector(
+                      onTap: () => _showPostOptions(context, post: post, isMyPost: isMyPost),
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: Icon(Icons.more_horiz, size: 18,
+                            color: AppColors.textHint.withValues(alpha: 0.7)),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 9),
+
+                // ─ 본문: 텍스트 왼쪽 + 썸네일 오른쪽
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        post.content,
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          color: Color(0xFF3A2318),
+                          height: 1.55,
+                          letterSpacing: -0.1,
+                        ),
+                        maxLines: hasThumbnail ? 4 : 6,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (hasThumbnail) ...[
+                      const SizedBox(width: 12),
+                      _Thumbnail(urls: post.imageUrls),
+                    ],
+                  ],
+                ),
+
+                const SizedBox(height: 9),
+                const Divider(height: 1, color: Color(0xFFF2EDE8)),
+                const SizedBox(height: 7),
+
+                // ─ 액션 버튼
+                Row(
+                  children: [
+                    _ActionBtn(
+                      icon: post.isLikedByMe
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      label: post.likesCount > 0 ? '${post.likesCount}' : '',
+                      color: post.isLikedByMe ? const Color(0xFFE53935) : AppColors.textHint,
+                      onTap: onLike,
+                    ),
+                    const SizedBox(width: 16),
+                    _ActionBtn(
+                      icon: Icons.chat_bubble_outline_rounded,
+                      label: post.commentsCount > 0 ? '${post.commentsCount}' : '',
+                      color: AppColors.textHint,
+                      onTap: onTap,
+                    ),
+                    const Spacer(),
+                    _ActionBtn(
+                      icon: post.isSavedByMe
+                          ? Icons.bookmark_rounded
+                          : Icons.bookmark_border_rounded,
+                      label: '',
+                      color: post.isSavedByMe ? AppColors.primary : AppColors.textHint,
+                      onTap: onSave,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
+    );
+  }
+}
+
+// ── 우측 썸네일 위젯 ────────────────────────────────────
+
+class _Thumbnail extends StatelessWidget {
+  final List<String> urls;
+  const _Thumbnail({required this.urls});
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Image.network(
+            urls.first,
+            width: 88,
+            height: 88,
+            fit: BoxFit.cover,
+            errorBuilder: (_, __, ___) => Container(
+              width: 88,
+              height: 88,
+              color: AppColors.primaryLight,
+            ),
+          ),
+        ),
+        if (urls.length > 1)
+          Positioned(
+            right: 5,
+            bottom: 5,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.55),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '+${urls.length - 1}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -757,4 +846,102 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AppAvatar(url: url, size: size);
+}
+
+// ── 커스텀 피드 필터칩 ────────────────────────────────────
+
+class _FeedFilterChip extends StatelessWidget {
+  final String label;
+  final String? emoji;
+  final IconData? icon;
+  final bool selected;
+  final bool isPet;
+  final VoidCallback onTap;
+
+  const _FeedFilterChip({
+    required this.label,
+    this.emoji,
+    this.icon,
+    required this.selected,
+    this.isPet = false,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bgColor = selected
+        ? AppColors.primary
+        : isPet
+            ? const Color(0xFFFFF3EB)
+            : Colors.white;
+
+    final borderColor = selected
+        ? AppColors.primary
+        : isPet
+            ? const Color(0xFFEDC9A8)
+            : const Color(0xFFDDD5CF);
+
+    final textColor = selected
+        ? Colors.white
+        : isPet
+            ? AppColors.primary
+            : AppColors.textSecondary;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: EdgeInsets.symmetric(
+          horizontal: isPet ? 11 : 12,
+          vertical: 7,
+        ),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: borderColor, width: 1.2),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.25),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
+              : [
+                  BoxShadow(
+                    color: const Color(0xFF8D6E63).withValues(alpha: 0.06),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (emoji != null) ...[
+              AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 180),
+                style: TextStyle(fontSize: selected ? 15 : 13),
+                child: Text(emoji!),
+              ),
+              const SizedBox(width: 5),
+            ] else if (icon != null) ...[
+              Icon(icon, size: 14, color: textColor),
+              const SizedBox(width: 4),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: textColor,
+                letterSpacing: -0.2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

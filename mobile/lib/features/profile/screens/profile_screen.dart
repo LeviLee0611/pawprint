@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/utils/image_util.dart';
-import '../../../features/admin/screens/admin_screen.dart';
-import '../../../features/auth/services/auth_service.dart';
-import '../../../features/calendar/screens/records_history_screen.dart';
-import '../../../features/calendar/services/record_service.dart';
-import '../../../features/pet/screens/pet_screen.dart';
-import '../../../features/pet/services/pet_service.dart';
-import '../../notification/screens/notification_settings_screen.dart';
-import '../../calendar/screens/reminder_screen.dart';
-import '../../feedback/screens/feedback_screen.dart';
-import 'edit_profile_screen.dart';
+import '../../../core/widgets/skeleton.dart';
+import '../../feed/models/post_model.dart';
+import '../../feed/screens/post_detail_screen.dart';
+import '../../feed/services/follow_service.dart';
+import '../../feed/services/post_service.dart';
+import '../../feed/screens/saved_posts_screen.dart';
+import '../widgets/profile_banner.dart';
+import 'follow_list_screen.dart';
+import 'settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -21,13 +19,16 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final _authService = AuthService();
-  final _petService = PetService();
-  final _recordService = RecordService();
+  final _postService = PostService();
+  final _followService = FollowService();
 
-  int _petCount = 0;
-  int _recordCount = 0;
+  List<Post> _posts = [];
+  int _followers = 0;
+  int _following = 0;
+  String? _avatarUrl;
+  String _displayName = '';
   bool _loading = true;
+  bool _hasError = false;
 
   @override
   void initState() {
@@ -36,112 +37,248 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadData() async {
-    final results = await Future.wait([
-      _petService.getMyPets(),
-      _recordService.getTotalRecordCount(),
-    ]);
-
-    if (!mounted) return;
-    final pets = results[0] as List;
-    final recordCount = results[1] as int;
-
-    setState(() {
-      _petCount = pets.length;
-      _recordCount = recordCount;
-      _loading = false;
-    });
-  }
-
-  Future<void> _signOut() async {
-    final ok = await _showConfirmDialog(
-      title: '로그아웃',
-      content: '로그아웃 하시겠어요?',
-      confirmLabel: '로그아웃',
-      confirmColor: AppColors.primary,
-    );
-    if (ok != true) return;
-    await _authService.signOut();
-  }
-
-  Future<void> _deleteAccount() async {
-    final ok = await _showConfirmDialog(
-      title: '정말 탈퇴하시겠어요?',
-      content:
-          '탈퇴하면 등록된 펫, 기록, 게시글이 모두 영구 삭제되며\n복구할 수 없어요.',
-      confirmLabel: '탈퇴하기',
-      confirmColor: Colors.red,
-    );
-    if (ok != true || !mounted) return;
-
-    setState(() => _loading = true);
+    final supabase = Supabase.instance.client;
+    final myId = supabase.auth.currentUser?.id ?? '';
     try {
-      final supabase = Supabase.instance.client;
-      // Edge Function: Storage 파일 정리 + auth.users 삭제
-      final response = await supabase.functions.invoke('delete-account');
-      if (response.status != 200) {
-        final msg = (response.data as Map?)?['error'] ?? '탈퇴 처리에 실패했어요';
-        throw Exception(msg);
-      }
-      await _authService.signOut();
-    } catch (e) {
+      final results = await Future.wait([
+        _postService.getMyPosts(),
+        _followService.getFollowCounts(myId),
+        supabase
+            .from('profiles')
+            .select('display_name, avatar_url')
+            .eq('id', myId)
+            .single(),
+      ]);
       if (!mounted) return;
-      setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('오류가 발생했어요: $e')),
-      );
+      final counts = results[1] as Map<String, int>;
+      final profile = results[2] as Map<String, dynamic>;
+      setState(() {
+        _posts = results[0] as List<Post>;
+        _followers = counts['followers'] ?? 0;
+        _following = counts['following'] ?? 0;
+        _avatarUrl = profile['avatar_url'] as String?;
+        _displayName = profile['display_name'] as String? ?? '';
+        _loading = false;
+        _hasError = false;
+      });
+    } catch (e) {
+      debugPrint('ProfileScreen load error: $e');
+      if (mounted) setState(() { _hasError = true; _loading = false; });
     }
   }
 
-  Future<bool?> _showConfirmDialog({
-    required String title,
-    required String content,
-    required String confirmLabel,
-    required Color confirmColor,
-  }) =>
-      showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text(title,
-              style: const TextStyle(
-                  fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-          content: Text(content,
-              style: const TextStyle(color: AppColors.textSecondary)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('취소',
-                  style: TextStyle(color: AppColors.textSecondary)),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: Text(confirmLabel,
-                  style: TextStyle(
-                      color: confirmColor, fontWeight: FontWeight.bold)),
-            ),
-          ],
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFFFFAF5),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFFFF0DC),
+        title: Text(
+          _displayName.isNotEmpty ? _displayName : '프로필',
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-      );
-
-  void _showTextDialog(String title, String content) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(title,
-            style: const TextStyle(
-                fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-        content: SingleChildScrollView(
-          child: Text(content,
-              style: const TextStyle(
-                  color: AppColors.textSecondary, height: 1.6)),
-        ),
+        centerTitle: false,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.bookmark_border_rounded),
+            tooltip: '저장된 게시글',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SavedPostsScreen()),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: '설정',
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const SettingsScreen()),
+            ),
+          ),
+        ],
+      ),
+      body: _loading
+          ? const SingleChildScrollView(
+              child: Column(children: [
+                ProfileBannerSkeleton(),
+                ProfileGridSkeleton(),
+              ]),
+            )
+          : _hasError
+              ? _buildError()
+              : RefreshIndicator(
+                  color: AppColors.primary,
+                  onRefresh: _loadData,
+                  child: CustomScrollView(
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: ProfileBanner(
+                          avatarUrl: _avatarUrl,
+                          name: _displayName,
+                          statsRow: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _StatColumn(
+                                  value: '${_posts.length}', label: '게시물'),
+                              GestureDetector(
+                                onTap: () {
+                                  final myId = Supabase.instance.client.auth
+                                      .currentUser?.id ?? '';
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => FollowListScreen(
+                                          userId: myId,
+                                          showFollowers: true),
+                                    ),
+                                  );
+                                },
+                                child: _StatColumn(
+                                    value: '$_followers', label: '팔로워'),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  final myId = Supabase.instance.client.auth
+                                      .currentUser?.id ?? '';
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => FollowListScreen(
+                                          userId: myId,
+                                          showFollowers: false),
+                                    ),
+                                  );
+                                },
+                                child: _StatColumn(
+                                    value: '$_following', label: '팔로잉'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      _posts.isEmpty
+                          ? SliverFillRemaining(child: _buildEmpty())
+                          : SliverPadding(
+                              padding: const EdgeInsets.all(10),
+                              sliver: SliverGrid(
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 3,
+                                  crossAxisSpacing: 8,
+                                  mainAxisSpacing: 8,
+                                  childAspectRatio: 1.0,
+                                ),
+                                delegate: SliverChildBuilderDelegate(
+                                  (context, index) =>
+                                      _buildGridItem(_posts[index]),
+                                  childCount: _posts.length,
+                                ),
+                              ),
+                            ),
+                    ],
+                  ),
+                ),
+    );
+  }
+
+  Widget _buildGridItem(Post post) {
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => PostDetailScreen(post: post)),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: post.imageUrl != null
+            ? Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(
+                    post.imageUrl!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => _buildTextTile(post),
+                  ),
+                  if (post.content.isNotEmpty)
+                    Positioned(
+                      left: 0, right: 0, bottom: 0,
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(10, 20, 10, 10),
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.transparent, Colors.black54],
+                          ),
+                        ),
+                        child: Text(
+                          post.content,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 11, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                ],
+              )
+            : _buildTextTile(post),
+      ),
+    );
+  }
+
+  Widget _buildTextTile(Post post) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFE0B2), Color(0xFFFFF3E8)],
+        ),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(post.petType == 'dog' ? '🐶' : '🐱',
+              style: const TextStyle(fontSize: 28)),
+          const SizedBox(height: 8),
+          Text(
+            post.content,
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.textPrimary,
+                height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildError() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.wifi_off_rounded,
+              size: 48, color: AppColors.textHint),
+          const SizedBox(height: 12),
+          const Text('불러오지 못했어요',
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary)),
+          const SizedBox(height: 12),
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('확인',
+            onPressed: () {
+              setState(() { _hasError = false; _loading = true; });
+              _loadData();
+            },
+            child: const Text('다시 시도',
                 style: TextStyle(color: AppColors.primary)),
           ),
         ],
@@ -149,325 +286,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (_loading) {
-      return const Scaffold(
-        body: Center(
-            child: CircularProgressIndicator(color: AppColors.primary)),
-      );
-    }
-
-    final user = Supabase.instance.client.auth.currentUser;
-    final avatarUrl = user?.userMetadata?['avatar_url'] as String?;
-    final name = (user?.userMetadata?['full_name'] ??
-            user?.userMetadata?['name'] ??
-            '이름 없음') as String;
-    final email = user?.email ?? '';
-
-    return Scaffold(
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFFFF0DC), Color(0xFFFFFAF5)],
-            ),
-          ),
-          child: AppBar(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            title: const Text('프로필'),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.edit_outlined),
-                onPressed: () async {
-                  final updated = await Navigator.push<bool>(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => EditProfileScreen(
-                        currentName: name,
-                        currentAvatarUrl: avatarUrl,
-                      ),
-                    ),
-                  );
-                  if (updated == true && mounted) _loadData();
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.only(bottom: 40),
-        children: [
-          // ── 유저 정보 ──────────────────────────────
-          _buildUserHeader(avatarUrl, name, email),
-
-          // ── 통계 ──────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => Navigator.push(context,
-                        MaterialPageRoute(
-                            builder: (_) => const PetScreen())),
-                    child: _StatCard(
-                        emoji: '🐾',
-                        value: '$_petCount마리',
-                        label: '등록한 펫'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => Navigator.push(context,
-                        MaterialPageRoute(
-                            builder: (_) =>
-                                const RecordsHistoryScreen())),
-                    child: _StatCard(
-                        emoji: '📝',
-                        value: '$_recordCount개',
-                        label: '총 기록'),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          // ── 펫 관리 ──────────────────────────────────
-          _sectionLabel('펫 관리'),
-          _navTile(
-            icon: Icons.pets_outlined,
-            label: '내 펫 관리',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const PetScreen()),
-            ),
-          ),
-          _navTile(
-            icon: Icons.vaccines_outlined,
-            label: '예방접종 알림 관리',
-            iconColor: AppColors.green,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const ReminderScreen()),
-            ),
-          ),
-
-          // ── 설정 ──────────────────────────────────
-          _sectionLabel('설정'),
-          _navTile(
-            icon: Icons.notifications_outlined,
-            label: '알림 설정',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (_) => const NotificationSettingsScreen()),
-            ),
-          ),
-
-          // ── 정보 ──────────────────────────────────
-          _sectionLabel('정보'),
-          _navTile(
-            icon: Icons.rate_review_outlined,
-            label: '피드백 보내기',
-            iconColor: AppColors.primary,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const FeedbackScreen()),
-            ),
-          ),
-          _navTile(
-            icon: Icons.description_outlined,
-            label: '이용약관',
-            onTap: () => _showTextDialog('이용약관', _kTerms),
-          ),
-          _navTile(
-            icon: Icons.shield_outlined,
-            label: '개인정보처리방침',
-            onTap: () => _showTextDialog('개인정보처리방침', _kPrivacy),
-          ),
-          _navTile(
-            icon: Icons.info_outline,
-            label: '앱 버전',
-            trailing:
-                const Text('1.0.0', style: TextStyle(color: AppColors.textHint)),
-          ),
-
-          // ── 관리자 ────────────────────────────────
-          if (user?.id == '675dccab-0660-4f6f-852b-5807c4d07f63' ||
-              user?.id == '5eb6c0ec-1220-4af5-ab10-47330d23dc35') ...[
-            _sectionLabel('관리자'),
-            _navTile(
-              icon: Icons.admin_panel_settings_outlined,
-              label: '신고 처리',
-              iconColor: Colors.red,
-              onTap: () => Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const AdminScreen())),
-            ),
-          ],
-
-          // ── 계정 ──────────────────────────────────
-          _sectionLabel('계정'),
-          _navTile(
-            icon: Icons.logout_rounded,
-            label: '로그아웃',
-            onTap: _signOut,
-          ),
-          _navTile(
-            icon: Icons.person_remove_outlined,
-            label: '회원탈퇴',
-            labelColor: Colors.red,
-            iconColor: Colors.red,
-            onTap: _deleteAccount,
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── 유저 헤더 ─────────────────────────────────────
-  Widget _buildUserHeader(String? avatarUrl, String name, String email) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFFFF0DC), Color(0xFFFFFAF5)],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.primary.withValues(alpha: 0.1),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 36,
-            backgroundColor: AppColors.primaryLight,
-            backgroundImage: avatarUrl != null
-                ? NetworkImage(toTransformUrl(avatarUrl,
-                    width: 144, height: 144, quality: 85, resize: 'cover'))
-                : null,
-            child: avatarUrl == null
-                ? ClipOval(
-                    child: Image.asset('assets/images/포포얼굴사진.png',
-                        width: 72, height: 72, fit: BoxFit.cover))
-                : null,
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name,
-                    style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary)),
-                const SizedBox(height: 4),
-                Text(email,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 13, color: AppColors.textSecondary)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── 섹션 레이블 ───────────────────────────────────
-  Widget _sectionLabel(String text) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 6),
-        child: Text(text,
-            style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textHint,
-                letterSpacing: 0.6)),
-      );
-
-
-  // ── 네비 타일 ─────────────────────────────────────
-  Widget _navTile({
-    required IconData icon,
-    required String label,
-    VoidCallback? onTap,
-    Widget? trailing,
-    Color? labelColor,
-    Color? iconColor,
-  }) =>
-      _tileWrapper(
-        child: ListTile(
-          leading: Icon(icon,
-              color: iconColor ?? AppColors.textSecondary, size: 22),
-          title: Text(label,
+  Widget _buildEmpty() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: const [
+          Icon(Icons.camera_alt_outlined,
+              size: 56, color: AppColors.textHint),
+          SizedBox(height: 12),
+          Text('아직 게시글이 없어요',
               style: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  color: labelColor ?? AppColors.textPrimary)),
-          trailing: trailing ??
-              (onTap != null
-                  ? const Icon(Icons.chevron_right,
-                      color: AppColors.textHint)
-                  : null),
-          onTap: onTap,
-        ),
-      );
-
-  Widget _tileWrapper({required Widget child}) => Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Material(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(14),
-          child: child,
-        ),
-      );
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary)),
+          SizedBox(height: 4),
+          Text('첫 번째 순간을 기록해보세요 🐾',
+              style: TextStyle(
+                  fontSize: 13, color: AppColors.textSecondary)),
+        ],
+      ),
+    );
+  }
 }
 
-// ── 통계 카드 ─────────────────────────────────────────
-class _StatCard extends StatelessWidget {
-  final String emoji;
+class _StatColumn extends StatelessWidget {
   final String value;
   final String label;
 
-  const _StatCard(
-      {required this.emoji, required this.value, required this.label});
+  const _StatColumn({required this.value, required this.label});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.brown.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Column(
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 26)),
-          const SizedBox(height: 6),
           Text(value,
               style: const TextStyle(
                   fontSize: 18,
@@ -482,88 +335,3 @@ class _StatCard extends StatelessWidget {
     );
   }
 }
-
-// ── 약관 내용 ─────────────────────────────────────────
-const _kTerms = '''
-이용약관
-
-댕냥스토리 앱을 이용해 주셔서 감사합니다.
-
-제1조 (목적)
-본 약관은 댕냥스토리(이하 "앱")가 제공하는 서비스의 이용 조건 및 절차를 규정합니다.
-
-제2조 (서비스 이용)
-앱을 통해 반려동물의 건강 기록 관리, 사진 기록, 커뮤니티(피드·댓글·팔로우) 기능을 이용할 수 있습니다. 서비스는 개인 용도로만 사용해야 하며, 타인의 권리를 침해하는 용도로 사용할 수 없습니다.
-
-제3조 (계정)
-소셜 로그인(Google, 카카오)을 통해 계정을 생성할 수 있습니다. 계정 정보 보안은 사용자 본인이 책임집니다. 타인의 계정을 도용하거나 허위 정보로 가입하는 행위는 금지됩니다.
-
-제4조 (커뮤니티 이용 규칙)
-다음 행위는 금지됩니다.
-• 욕설, 혐오 표현, 타인을 비방하는 게시물 작성
-• 스팸, 광고성 콘텐츠 반복 게시
-• 타인의 개인정보 무단 공개
-• 저작권 등 지식재산권 침해 콘텐츠 게시
-• 불법적이거나 미풍양속에 반하는 콘텐츠 게시
-
-운영자는 위 규칙을 위반한 게시물을 사전 통보 없이 삭제하거나 계정을 제한할 수 있습니다.
-
-제5조 (신고 및 차단)
-불건전한 게시물이나 사용자를 신고할 수 있습니다. 신고 내용은 운영자가 검토 후 조치하며, 신고자의 정보는 피신고자에게 공개되지 않습니다. 차단 기능을 통해 특정 사용자의 게시물을 피드에서 숨길 수 있습니다.
-
-제6조 (개인정보)
-앱은 서비스 제공에 필요한 최소한의 개인정보를 수집하며, 개인정보처리방침에 따라 관리합니다.
-
-제7조 (서비스 변경 및 종료)
-앱은 사전 공지 후 서비스 내용을 변경하거나 종료할 수 있습니다.
-
-제8조 (면책)
-앱은 사용자가 게시한 콘텐츠에 대한 법적 책임을 지지 않습니다. 사용자 간 분쟁은 당사자 간에 해결하며, 앱은 이에 개입할 의무가 없습니다.
-
-버전 1.1.0 | 시행일: 2026-06-03
-''';
-
-const _kPrivacy = '''
-개인정보처리방침
-
-댕냥스토리는 사용자의 개인정보를 소중히 여기며, 개인정보 보호법 및 정보통신망 이용촉진 및 정보보호 등에 관한 법률을 준수합니다.
-
-1. 수집 항목
-• 소셜 로그인 정보 (이름, 이메일, 프로필 사진)
-• 반려동물 정보 (이름, 종류, 사진, 생년월일, 품종)
-• 건강 및 일상 기록 데이터
-• 게시글, 댓글, 좋아요, 팔로우 관계
-• 신고 내역
-• 기기 푸시 알림 토큰 (FCM Token)
-• 앱 이용 기록 (접속 일시, 서비스 이용 기록)
-
-2. 수집 목적
-• 서비스 제공 및 개인화
-• 펫 건강 기록 관리
-• 커뮤니티 기능 제공 (피드, 댓글, 팔로우)
-• 푸시 알림 발송 (좋아요, 댓글, 팔로우 알림)
-• 불법·부적절한 콘텐츠 모니터링 및 신고 처리
-
-3. 보관 기간
-• 서비스 이용 기간 동안 보관
-• 회원탈퇴 시 즉시 삭제 (단, 관계 법령에 따라 일정 기간 보관이 필요한 경우 예외)
-
-4. 제3자 제공
-사용자 동의 없이 개인정보를 제3자에게 제공하지 않습니다. 단, 법령에 따른 수사기관 요청의 경우 예외입니다.
-
-5. 개인정보 처리 위탁
-서비스 운영을 위해 아래 업체에 개인정보 처리를 위탁합니다.
-• Supabase Inc. (데이터 저장 및 인증) — 서버: 미국/싱가포르
-• Google Firebase (푸시 알림) — 서버: 미국
-• Google, 카카오 (소셜 로그인) — 각 사 개인정보처리방침 적용
-
-6. 개인정보의 국외 이전
-위 수탁업체의 서버가 해외에 위치함에 따라 개인정보가 국외로 이전될 수 있습니다. 이에 동의하지 않는 경우 서비스 이용이 제한될 수 있습니다.
-
-7. 사용자 권리
-• 언제든지 개인정보 조회, 수정, 삭제를 요청할 수 있습니다.
-• 앱 내 회원탈퇴 기능을 통해 즉시 계정 및 데이터를 삭제할 수 있습니다.
-• 문의: dlrbqls5126@gmail.com
-
-버전 1.1.0 | 시행일: 2026-06-03
-''';

@@ -187,7 +187,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       ),
     );
     if (ok == true && mounted) {
-      await _postService.deletePost(_post.id, imageUrl: _post.imageUrl);
+      await _postService.deletePost(_post.id, imageUrls: _post.imageUrls);
       if (mounted) Navigator.pop(context);
     }
   }
@@ -516,17 +516,9 @@ class _OriginalPost extends StatelessWidget {
                   fontSize: 16,
                   color: AppColors.textPrimary,
                   height: 1.6)),
-          if (post.imageUrl != null) ...[
+          if (post.imageUrls.isNotEmpty) ...[
             const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                post.imageUrl!,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => const SizedBox(),
-              ),
-            ),
+            _DetailImageCarousel(urls: post.imageUrls),
           ],
           const SizedBox(height: 14),
           if (post.likesCount > 0) ...[
@@ -854,6 +846,72 @@ class _ReplyRow extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── 상세 이미지 캐러셀 ─────────────────────────────────────
+
+class _DetailImageCarousel extends StatefulWidget {
+  final List<String> urls;
+  const _DetailImageCarousel({required this.urls});
+
+  @override
+  State<_DetailImageCarousel> createState() => _DetailImageCarouselState();
+}
+
+class _DetailImageCarouselState extends State<_DetailImageCarousel> {
+  int _current = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.urls.length == 1) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.network(
+          widget.urls.first,
+          width: double.infinity,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => const SizedBox(),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        AspectRatio(
+          aspectRatio: 1,
+          child: PageView.builder(
+            itemCount: widget.urls.length,
+            onPageChanged: (i) => setState(() => _current = i),
+            itemBuilder: (ctx, i) => ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                widget.urls[i],
+                width: double.infinity,
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const SizedBox(),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: List.generate(widget.urls.length, (i) {
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              width: _current == i ? 18 : 7,
+              height: 7,
+              decoration: BoxDecoration(
+                color: _current == i ? AppColors.primary : AppColors.brownLight,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            );
+          }),
         ),
       ],
     );

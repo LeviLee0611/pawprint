@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../core/utils/content_filter.dart';
 import '../../../core/utils/storage_path_util.dart';
 import '../models/post_model.dart';
 
@@ -11,7 +12,7 @@ class PostService {
       '*, profiles:owner_id(display_name, avatar_url), pets:pet_id(name, type)';
   // petType 필터 시 !inner JOIN → pet 없거나 타입 불일치 게시글 서버에서 제외
   static const _postSelectPetFilter =
-      '*, profiles:owner_id(display_name, avatar_url), pets!inner:pet_id(name, type)';
+      '*, profiles:owner_id(display_name, avatar_url), pets!inner(name, type)';
   static const _commentSelect =
       '*, profiles:owner_id(display_name, avatar_url)';
 
@@ -25,7 +26,7 @@ class PostService {
     final userId = _supabase.auth.currentUser?.id;
 
     final select = petType != null ? _postSelectPetFilter : _postSelect;
-    var query = _supabase.from('posts').select(select);
+    var query = _supabase.from('posts').select(select).eq('is_hidden', false);
 
     // 팔로잉 필터: 내 글 + 팔로우한 사람 글
     if (followingIds != null) {
@@ -75,7 +76,7 @@ class PostService {
   }) async {
     final userId = _supabase.auth.currentUser?.id;
 
-    var query = _supabase.from('posts').select(_postSelect);
+    var query = _supabase.from('posts').select(_postSelect).eq('is_hidden', false);
 
     // 차단 유저 게시글 제외
     if (blockedIds != null && blockedIds.isNotEmpty) {
@@ -122,6 +123,7 @@ class PostService {
         .from('saves')
         .select('post_id, posts($_postSelect)')
         .eq('owner_id', userId)
+        .eq('posts.is_hidden', false)
         .order('created_at', ascending: false);
 
     final postIds = (savesData as List).map((e) => e['post_id'] as String).toList();
@@ -171,6 +173,7 @@ class PostService {
           .from('posts')
           .select(_postSelect)
           .eq('owner_id', userId)
+          .eq('is_hidden', false)
           .order('created_at', ascending: false),
       if (myId != null)
         _supabase.from('likes').select('post_id').eq('owner_id', myId),
@@ -195,6 +198,7 @@ class PostService {
           .from('posts')
           .select(_postSelect)
           .eq('owner_id', userId)
+          .eq('is_hidden', false)
           .order('created_at', ascending: false),
       _supabase.from('likes').select('post_id').eq('owner_id', userId),
     ]);
@@ -269,6 +273,7 @@ class PostService {
         .from('posts')
         .select(_postSelect)
         .eq('id', postId)
+        .eq('is_hidden', false)
         .maybeSingle();
     if (data == null) return null;
 
@@ -288,21 +293,49 @@ class PostService {
   Future<Post> addPost({
     required String? petId,
     required String content,
-    File? imageFile,
+    List<File>? imageFiles,
   }) async {
-    final userId = _supabase.auth.currentUser!.id;
-    String? imageUrl;
-    String? storagePath;
+    final filtered = ContentFilter.check(content);
+    if (filtered != null) throw Exception(filtered);
 
-    if (imageFile != null) {
-      final ext = imageFile.path.split('.').last.toLowerCase();
-      storagePath = '$userId/${DateTime.now().millisecondsSinceEpoch}.$ext';
-      await _supabase.storage
-          .from('post-images')
-          .upload(storagePath, imageFile);
-      imageUrl = _supabase.storage
-          .from('post-images')
-          .getPublicUrl(storagePath);
+    final userId = _supabase.auth.currentUser!.id;
+    final uploadedUrls = <String>[];
+    final uploadedPaths = <String>[];
+
+    final files = imageFiles ?? [];
+    if (files.isNotEmpty) {
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final results = await Future.wait(
+        List.generate(files.length, (i) async {
+          final file = files[i];
+          final ext = file.path.split('.').last.toLowerCase();
+          final path = '$userId/${timestamp}_$i.$ext';
+          await _supabase.storage.from('post-images').upload(path, file);
+          return MapEntry(path, _supabase.storage.from('post-images').getPublicUrl(path));
+        }),
+      );
+      for (final e in results) {
+        uploadedPaths.add(e.key);
+        uploadedUrls.add(e.value);
+      }
+    }
+
+    // 이미지 부적절 콘텐츠 검사
+    if (uploadedUrls.isNotEmpty) {
+      try {
+        final result = await _supabase.functions.invoke(
+          'moderate-images',
+          body: {'imageUrls': uploadedUrls},
+        );
+        final body = result.data as Map<String, dynamic>?;
+        if (body != null && body['safe'] == false) {
+          await _supabase.storage.from('post-images').remove(uploadedPaths);
+          throw Exception(body['reason'] ?? '부적절한 콘텐츠가 감지됐어요');
+        }
+      } catch (e) {
+        if (e is Exception && e.toString().contains('부적절한')) rethrow;
+        // Vision API 오류는 무시하고 진행
+      }
     }
 
     try {
@@ -312,20 +345,18 @@ class PostService {
             'owner_id': userId,
             'pet_id': petId,
             'content': content,
-            'image_url': imageUrl,
+            'image_url': uploadedUrls.isNotEmpty ? uploadedUrls.first : null,
+            'image_urls': uploadedUrls,
           })
           .select(_postSelect)
           .single();
       final post = Post.fromJson(data);
-      // 팔로워에게 새 게시글 알림 전송 (fire-and-forget)
       _notifyNewPost(userId, post.ownerName);
       return post;
     } catch (e) {
-      if (storagePath != null) {
+      if (uploadedPaths.isNotEmpty) {
         try {
-          await _supabase.storage
-              .from('post-images')
-              .remove([storagePath]);
+          await _supabase.storage.from('post-images').remove(uploadedPaths);
         } catch (_) {}
       }
       rethrow;
@@ -349,13 +380,15 @@ class PostService {
     } catch (_) {}
   }
 
-  /// imageUrl을 받아서 Storage 파일도 같이 삭제
-  Future<void> deletePost(String postId, {String? imageUrl}) async {
-    if (imageUrl != null) {
-      final path = StoragePathUtil.fromUrl(imageUrl, 'post-images');
-      if (path != null) {
+  Future<void> deletePost(String postId, {List<String>? imageUrls}) async {
+    if (imageUrls != null && imageUrls.isNotEmpty) {
+      final paths = imageUrls
+          .map((url) => StoragePathUtil.fromUrl(url, 'post-images'))
+          .whereType<String>()
+          .toList();
+      if (paths.isNotEmpty) {
         try {
-          await _supabase.storage.from('post-images').remove([path]);
+          await _supabase.storage.from('post-images').remove(paths);
         } catch (_) {}
       }
     }

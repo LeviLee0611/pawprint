@@ -449,7 +449,7 @@ class _PostTile extends StatelessWidget {
                   ),
                   if (post.imageUrl != null) ...[
                     const SizedBox(height: 8),
-                    AppPostImage(url: post.imageUrl!, height: 140),
+                    AppPostImage(url: post.imageUrl!, fixedHeight: 140),
                   ],
                   const SizedBox(height: 8),
                   Row(

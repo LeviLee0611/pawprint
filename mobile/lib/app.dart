@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'core/services/notification_service.dart';
 import 'features/calendar/screens/calendar_screen.dart';
+import 'features/community/screens/community_screen.dart';
 import 'features/feed/screens/feed_screen.dart';
-import 'features/profile/screens/my_profile_screen.dart';
 import 'features/profile/screens/profile_screen.dart';
 import 'features/search/screens/search_screen.dart';
 
@@ -56,7 +56,7 @@ class _AppState extends State<App> {
           CalendarScreen(),
           FeedScreen(),
           SearchScreen(),
-          MyProfileScreen(),
+          CommunityScreen(),
           ProfileScreen(),
         ],
       ),
@@ -81,9 +81,9 @@ class _AppState extends State<App> {
             label: '검색',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.grid_on_outlined),
-            activeIcon: Icon(Icons.grid_on),
-            label: '내 피드',
+            icon: Icon(Icons.favorite_border_rounded),
+            activeIcon: Icon(Icons.favorite_rounded),
+            label: '나눔&실종',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),

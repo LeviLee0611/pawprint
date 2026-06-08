@@ -1,5 +1,55 @@
 # 댕냥스토리 개발 기록
 
+## 2026-06-08
+
+### 한 일
+
+**피드 카드 레이아웃 개편 (뉴스형)**
+- 전체 너비 이미지 카드 → 썸네일 우측 88×88 뉴스형으로 변경
+- `_ThreadPost` 헤더: 아바타(34px) + 이름 + 펫 칩 + 시간 + ⋮ 인라인
+- 사진 1장: 단독 표시 / 여러 장: 썸네일 + "+N" 뱃지
+- `post_detail_screen.dart`: 단일 이미지 BoxFit.contain / 다중 PageView 캐러셀 + 도트 인디케이터
+
+**나눔 & 실종 커뮤니티 탭 전체 구현**
+- `community_post_model.dart`, `sighting_report_model.dart` 모델 생성
+- `community_service.dart`: getPosts / getSightings / addSighting / addPost / updatePost / resolvePost / deletePost
+- `community_screen.dart`: 전체/실종/나눔&입양 탭 필터, 카드 목록, FAB 글쓰기
+- `add_community_post_screen.dart`: 카테고리 선택(실종/입양보내기/입양원해요), GPS 위치 첨부, 사진 최대 5장
+- `community_post_detail_screen.dart`: 이미지 캐러셀, 실종 위치 카드(Google Maps 연동), 목격 신고 목록
+- `add_sighting_screen.dart`: 목격 위치(GPS + 수동 입력) + 메모 저장
+- `edit_community_post_screen.dart`: 전체 필드 수정, GPS 위치 재설정
+- DB: `community_posts` FK를 `auth.users` → `profiles(id)`로 변경 (PostgREST join 오류 수정)
+
+**게시글 옵션 메뉴 (⋮ 버튼)**
+- 공유(share_plus) / 수정 / 삭제(확인 다이얼로그) / 신고 — 내 글 vs 남의 글 분기 처리
+- 수정 후 화면 즉시 업데이트 (`_post` mutable state)
+
+**이미지 콘텐츠 검열 (Google Cloud Vision SafeSearch)**
+- Supabase Edge Function `moderate-images` 배포
+- adult / violence LIKELY 이상 → 업로드 이미지 자동 삭제 + 에러 반환
+- 피드(`post_service.dart`) + 커뮤니티(`community_service.dart`) 모두 적용
+- Vision API 오류 시 무시하고 진행 (서비스 중단 방지)
+
+**GPS 위치 기능**
+- `geolocator: ^13.0.1` 추가, AndroidManifest 위치 권한 등록
+- 실종 글 작성/수정 시 현재 GPS 좌표 → 주소 필드 자동 채움
+- 상세 화면에서 위치 카드 탭 → `geo:` URI로 Google Maps 열기
+
+**이미지 업로드 최적화**
+- 순차 업로드(`for await`) → `Future.wait()` 병렬 업로드로 변경
+- 피드/커뮤니티 서비스 양쪽 적용, 5장 기준 ~5배 속도 개선
+
+**키워드 필터 + 신고 자동 숨김**
+- `content_filter.dart`: 불법 도박·대출·마약·성인광고·스팸 URL 키워드 목록
+- `addPost()` 시작 시 이미지 업로드 전에 먼저 검사 (낭비 방지)
+- SQL 트리거: 신고 5회 누적 → posts.is_hidden=true / community_posts.status='hidden' 자동 전환
+- getPosts 쿼리에 숨김 게시글 제외 필터 추가
+
+### SQL 실행 필요
+`supabase/migrations/auto_hide_on_reports.sql` — Supabase SQL Editor에서 실행
+
+---
+
 ## 2026-06-01
 
 ### 팔로우 / 내 피드 / 피드 필터

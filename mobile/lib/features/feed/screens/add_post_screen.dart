@@ -26,14 +26,16 @@ class _AddPostScreenState extends State<AddPostScreen> {
   final _postService = PostService();
 
   Pet? _selectedPet;
-  File? _imageFile;
+  List<File> _imageFiles = [];
   bool _loading = false;
+
+  static const _maxImages = 5;
 
   @override
   void initState() {
     super.initState();
     _selectedPet = widget.initialPet ?? (widget.pets.isNotEmpty ? widget.pets.first : null);
-    _imageFile = widget.initialImage;
+    if (widget.initialImage != null) _imageFiles = [widget.initialImage!];
   }
 
   @override
@@ -42,11 +44,20 @@ class _AddPostScreenState extends State<AddPostScreen> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _pickImages() async {
     final picker = ImagePicker();
-    final picked =
-        await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
-    if (picked != null) setState(() => _imageFile = File(picked.path));
+    final remaining = _maxImages - _imageFiles.length;
+    if (remaining <= 0) return;
+
+    final picked = await picker.pickMultiImage(imageQuality: 80);
+    if (picked.isEmpty) return;
+
+    final toAdd = picked.take(remaining).map((x) => File(x.path)).toList();
+    setState(() => _imageFiles.addAll(toAdd));
+  }
+
+  void _removeImage(int index) {
+    setState(() => _imageFiles.removeAt(index));
   }
 
   Future<void> _submit() async {
@@ -61,7 +72,7 @@ class _AddPostScreenState extends State<AddPostScreen> {
       await _postService.addPost(
         petId: _selectedPet?.id,
         content: _contentController.text.trim(),
-        imageFile: _imageFile,
+        imageFiles: _imageFiles.isEmpty ? null : _imageFiles,
       );
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
@@ -80,7 +91,9 @@ class _AddPostScreenState extends State<AddPostScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFFFFAF5),
       appBar: AppBar(
+        backgroundColor: const Color(0xFFFFF0DC),
         title: const Text('글쓰기'),
         actions: [
           Padding(
@@ -108,7 +121,7 @@ class _AddPostScreenState extends State<AddPostScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Pet selector
+              // 펫 선택
               if (widget.pets.length > 1) ...[
                 const Text('누구의 이야기인가요?',
                     style: TextStyle(
@@ -123,8 +136,7 @@ class _AddPostScreenState extends State<AddPostScreen> {
                       return Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: GestureDetector(
-                          onTap: () =>
-                              setState(() => _selectedPet = pet),
+                          onTap: () => setState(() => _selectedPet = pet),
                           child: AnimatedContainer(
                             duration: const Duration(milliseconds: 150),
                             padding: const EdgeInsets.symmetric(
@@ -163,83 +175,91 @@ class _AddPostScreenState extends State<AddPostScreen> {
                 const SizedBox(height: 20),
               ],
 
-              // Content
+              // 본문
               TextField(
                 controller: _contentController,
                 maxLines: 8,
                 minLines: 5,
                 maxLength: 500,
                 decoration: InputDecoration(
-                  hintText:
-                      '${_selectedPet?.name ?? '아이'}의 오늘은 어땠나요? 🐾',
-                  hintStyle:
-                      const TextStyle(color: AppColors.textHint),
+                  hintText: '${_selectedPet?.name ?? '아이'}의 오늘은 어땠나요? 🐾',
+                  hintStyle: const TextStyle(color: AppColors.textHint),
                   filled: true,
                   fillColor: Colors.white,
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(
-                          color: AppColors.primaryLight)),
+                      borderSide: const BorderSide(color: AppColors.primaryLight)),
                   enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(
-                          color: AppColors.primaryLight)),
+                      borderSide: const BorderSide(color: AppColors.primaryLight)),
                   focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(
-                          color: AppColors.primary, width: 2)),
+                      borderSide: const BorderSide(color: AppColors.primary, width: 2)),
                   contentPadding: const EdgeInsets.all(16),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
 
-              // Image preview
-              if (_imageFile != null) ...[
-                Stack(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.file(_imageFile!,
-                          width: double.infinity,
-                          height: 200,
-                          fit: BoxFit.cover),
-                    ),
-                    Positioned(
-                      top: 8,
-                      right: 8,
-                      child: GestureDetector(
-                        onTap: () =>
-                            setState(() => _imageFile = null),
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                              color: Colors.black54,
-                              borderRadius:
-                                  BorderRadius.circular(20)),
-                          child: const Icon(Icons.close,
-                              color: Colors.white, size: 18),
-                        ),
+              // 이미지 미리보기
+              if (_imageFiles.isNotEmpty) ...[
+                SizedBox(
+                  height: 100,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _imageFiles.length,
+                    itemBuilder: (ctx, i) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: Image.file(
+                              _imageFiles[i],
+                              width: 100,
+                              height: 100,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: GestureDetector(
+                              onTap: () => _removeImage(i),
+                              child: Container(
+                                padding: const EdgeInsets.all(3),
+                                decoration: BoxDecoration(
+                                    color: Colors.black54,
+                                    borderRadius: BorderRadius.circular(20)),
+                                child: const Icon(Icons.close,
+                                    color: Colors.white, size: 14),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
                 const SizedBox(height: 12),
               ],
 
-              OutlinedButton.icon(
-                onPressed: _pickImage,
-                icon: const Icon(Icons.image_outlined,
-                    color: AppColors.primary),
-                label: Text(
-                  _imageFile == null ? '사진 추가' : '사진 변경',
-                  style: const TextStyle(color: AppColors.primary),
+              // 사진 추가 버튼
+              if (_imageFiles.length < _maxImages)
+                OutlinedButton.icon(
+                  onPressed: _pickImages,
+                  icon: const Icon(Icons.image_outlined, color: AppColors.primary),
+                  label: Text(
+                    _imageFiles.isEmpty
+                        ? '사진 추가 (최대 $_maxImages장)'
+                        : '사진 추가 (${_imageFiles.length}/$_maxImages)',
+                    style: const TextStyle(color: AppColors.primary),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppColors.primaryLight),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
                 ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.primaryLight),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
             ],
           ),
         ),
