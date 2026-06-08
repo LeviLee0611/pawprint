@@ -114,8 +114,19 @@ class _SearchScreenState extends State<SearchScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight + kTextTabBarHeight),
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFFFF0DC), Color(0xFFFFFAF5)],
+            ),
+          ),
+          child: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         titleSpacing: 16,
         title: TextField(
           controller: _searchController,
@@ -177,6 +188,8 @@ class _SearchScreenState extends State<SearchScreen>
                   : '게시글 ${_posts.isNotEmpty ? "(${_posts.length})" : ""}',
             ),
           ],
+        ),
+          ),
         ),
       ),
       body: _loading

@@ -89,17 +89,30 @@ class _CommunityScreenState extends State<CommunityScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.background,
-        title: const Text('나눔 & 실종',
-            style: TextStyle(fontWeight: FontWeight.bold)),
-        centerTitle: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_circle_outline_rounded),
-            onPressed: _openWrite,
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFFFF0DC), Color(0xFFFFFAF5)],
+            ),
           ),
-        ],
+          child: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            title: const Text('나눔 & 실종',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            centerTitle: false,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.add_circle_outline_rounded),
+                onPressed: _openWrite,
+              ),
+            ],
+          ),
+        ),
       ),
       body: Column(
         children: [

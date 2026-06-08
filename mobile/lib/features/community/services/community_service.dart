@@ -177,6 +177,16 @@ class CommunityService {
         .eq('id', postId);
   }
 
+  Future<CommunityPost?> getPostById(String postId) async {
+    final data = await _supabase
+        .from('community_posts')
+        .select(_select)
+        .eq('id', postId)
+        .maybeSingle();
+    if (data == null) return null;
+    return CommunityPost.fromJson(data);
+  }
+
   Future<void> deletePost(String postId, {List<String>? imageUrls}) async {
     if (imageUrls != null && imageUrls.isNotEmpty) {
       final paths = imageUrls

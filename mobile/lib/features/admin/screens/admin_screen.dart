@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../community/screens/community_post_detail_screen.dart';
+import '../../community/services/community_service.dart';
 import '../../feed/screens/post_detail_screen.dart';
 import '../../feed/services/post_service.dart';
 import '../../profile/screens/user_profile_screen.dart';
@@ -16,6 +18,7 @@ class AdminScreen extends StatefulWidget {
 class _AdminScreenState extends State<AdminScreen> {
   final _supabase = Supabase.instance.client;
   final _postService = PostService();
+  final _communityService = CommunityService();
 
   List<Map<String, dynamic>> _reports = [];
   bool _loading = true;
@@ -99,6 +102,32 @@ class _AdminScreenState extends State<AdminScreen> {
     }
   }
 
+  Future<void> _deleteCommunityPost(String postId, String reportId) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('커뮤니티 글 삭제'),
+        content: const Text('이 커뮤니티 글을 삭제하고 신고를 처리완료로 변경할까요?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false),
+              child: const Text('취소', style: TextStyle(color: AppColors.textSecondary))),
+          TextButton(onPressed: () => Navigator.pop(context, true),
+              child: const Text('삭제', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await _communityService.deletePost(postId);
+      await _updateStatus(reportId, 'resolved');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('삭제 실패: $e')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -168,13 +197,23 @@ class _AdminScreenState extends State<AdminScreen> {
                       onDismiss: () => _updateStatus(_reports[i]['id'], 'dismissed'),
                       onDeletePost: _reports[i]['target_type'] == 'post'
                           ? () => _deletePost(_reports[i]['target_id'], _reports[i]['id'])
-                          : null,
+                          : _reports[i]['target_type'] == 'community_post'
+                              ? () => _deleteCommunityPost(_reports[i]['target_id'], _reports[i]['id'])
+                              : null,
                       onViewContent: () async {
-                        if (_reports[i]['target_type'] == 'post') {
-                          final post = await _postService.getPostById(_reports[i]['target_id']);
+                        final type = _reports[i]['target_type'];
+                        final targetId = _reports[i]['target_id'];
+                        if (type == 'post') {
+                          final post = await _postService.getPostById(targetId);
                           if (!context.mounted || post == null) return;
                           Navigator.push(context, MaterialPageRoute(
                             builder: (_) => PostDetailScreen(post: post),
+                          ));
+                        } else if (type == 'community_post') {
+                          final post = await _communityService.getPostById(targetId);
+                          if (!context.mounted || post == null) return;
+                          Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => CommunityPostDetailScreen(post: post),
                           ));
                         }
                       },
@@ -262,7 +301,11 @@ class _ReportTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  report['target_type'] == 'post' ? '게시글' : '댓글',
+                  switch (report['target_type']) {
+                    'post' => '피드 글',
+                    'community_post' => '커뮤니티 글',
+                    _ => report['target_type'] as String? ?? '기타',
+                  },
                   style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary),
                 ),
               ),
@@ -311,7 +354,10 @@ class _ReportTile extends StatelessWidget {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         padding: const EdgeInsets.symmetric(vertical: 8),
                       ),
-                      child: const Text('게시글 삭제', style: TextStyle(fontSize: 13)),
+                      child: Text(
+                        report['target_type'] == 'community_post' ? '커뮤니티 글 삭제' : '게시글 삭제',
+                        style: const TextStyle(fontSize: 13),
+                      ),
                     ),
                   ),
                 ],

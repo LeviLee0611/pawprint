@@ -103,3 +103,35 @@ alter table public.reports
 alter table public.reports
   add constraint reports_target_type_check
   check (target_type in ('post', 'comment', 'community_post'));
+
+-- ================================================
+-- 기존 community_posts 테이블 보정 (수동 생성된 경우)
+-- create table if not exists는 기존 테이블에 적용 안 되므로
+-- 컬럼/제약 누락 시 아래 ALTER로 보정
+-- ================================================
+alter table public.community_posts
+  add column if not exists image_urls text[] not null default '{}';
+
+alter table public.community_posts
+  add column if not exists address text;
+
+alter table public.community_posts
+  add column if not exists latitude double precision;
+
+alter table public.community_posts
+  add column if not exists longitude double precision;
+
+alter table public.community_posts
+  add column if not exists updated_at timestamptz default now();
+
+-- status 기본값 보정
+alter table public.community_posts
+  alter column status set default 'open';
+
+-- status check constraint 재설정
+alter table public.community_posts
+  drop constraint if exists community_posts_status_check;
+
+alter table public.community_posts
+  add constraint community_posts_status_check
+  check (status in ('open', 'resolved', 'hidden'));
