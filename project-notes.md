@@ -32,17 +32,22 @@
 - `PetScreen`: 등록 펫 카드 목록, FAB으로 추가
 
 ### 캘린더 & 건강 기록
-- `records` 테이블: id / pet_id / type / value / note / recorded_at
-- 기록 타입: 예방접종(health) / 몸무게(weight) / 건강 메모(note)
-- 월별 기록 로딩 + 날짜 마커(오렌지 점), 날짜 탭 → 기록 목록
+- `records` 테이블: id / pet_id(nullable) / owner_id / type / value / note / recorded_at
+- 기록 타입: 예방접종(health) / 몸무게(weight) / 건강 메모(note) — pet_id nullable로 공통 기록 지원
+- 날짜 셀: 기록 타입별 이모지 마커 (최대 2개) + 3개 이상 시 우상단 카운트 배지
+- 헤더: 이번달 통계 + 연속 기록 streak, 탭 → 월/년도 점프 DateJumper
+- 기록 타일: 좌측 4px accent bar (타입별 색상)
+- note 타입 활동별 이모지 매핑 (빗질 🪮, 목욕 🛁, 병원 🏥 등)
 - `RecordsHistoryScreen`: 전체 기록 날짜별 그룹
 
 ### 피드 (일반 게시글)
 - `posts` 테이블: id / owner_id / pet_id / content / image_url / image_urls / likes_count / is_hidden
 - `comments` / `likes` / `saves` / `follows` 테이블 연동
 - 피드 필터: 전체 / 팔로잉 / 고양이 / 강아지
-- 카드 레이아웃: 뉴스형 (썸네일 88×88 우측, 텍스트 좌측)
-- 사진 상세: 1장=contain 전체 너비 / 다중=PageView 캐러셀 + 도트 인디케이터
+- **이미지 포스트**: overlay 카드 스타일 — 이미지 전체 + 상하 그라디언트에 아바타/본문/액션 overlay, 4:5 비율
+- **텍스트 포스트**: post.id 해시 기반 8가지 파스텔 그라디언트 카드, 본문 텍스트 크게
+- 더블탭 좋아요 토글 + 하트 애니메이션, 다중 이미지 PageView + dot indicator
+- 이미지: 원본 URL 직접 사용 (Supabase Transform resize=cover 기본값 크롭 이슈 회피)
 - 좋아요 optimistic update, 댓글 스레드, 저장(북마크)
 - 인기 탭: likes_count 내림차순
 - 팔로우: `follows` 테이블, `UserProfileScreen`에서 팔로우 버튼

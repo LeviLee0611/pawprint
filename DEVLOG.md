@@ -1,5 +1,76 @@
 # 댕냥스토리 개발 기록
 
+## 2026-06-09 (저녁)
+
+### 한 일
+
+**피드 UI 전면 개편**
+- 이미지 포스트: 카드 컨테이너 제거 → overlay 스타일 (상단 그라디언트 + 아바타/이름, 하단 그라디언트 + 본문/액션)
+- 텍스트 포스트: post.id 해시 기반 8가지 파스텔 그라디언트 카드, 본문 텍스트 크게 표시
+- 더블탭 좋아요 토글 (좋아요 O → 취소, 좋아요 X → 추가 + 하트 애니메이션)
+- 다중 이미지 dot indicator (PageView), 인접 이미지 precache
+- `_ThreadPost(key: ValueKey(post.id))` 추가 → 필터/리프레시 시 state 누수 방지
+- `AppPostImage`: `CachedNetworkImage`로 교체, `fixedHeight` 있어도 호출자 `fit` 파라미터 존중하도록 수정
+- 이미지 크롭 버그 수정: Supabase Transform `resize=cover` 기본값이 서버 크롭 유발 → 원본 URL 직접 사용으로 해결
+
+**캘린더 기능 강화**
+- 날짜 셀 커스텀 빌더: 기록 타입별 이모지 마커 (최대 2개), 3개 이상 시 우상단 카운트 배지
+- 헤더에 이번달 통계 (`N개 · N일 기록`) + 연속 기록 streak (`🔥 N일 연속`) 표시
+- 헤더 탭 → 월/년도 점프 DateJumper (BottomSheet)
+- 기록 타일 좌측 4px accent bar (기록 타입별 색상)
+- 요일 헤더 색상: 일=빨강, 토=파랑
+- 오늘=outline 원, 선택=solid 원 통일
+- note 타입 기록에 활동별 이모지 매핑 (빗질 🪮, 목욕 🛁, 병원 🏥 등)
+- 몸무게 이모지 ⚖️ → 📊 변경
+
+**공통 기록 (pet_id nullable)**
+- `records.pet_id` NOT NULL 제약 제거 (`records_nullable_pet.sql`)
+- 전체 펫 대상 공통 기록 지원
+
+---
+
+## 2026-06-09
+
+### 한 일
+
+**커뮤니티 카테고리 확장 — 꿀팁/정보, 질문/고민**
+- `tip` / `question` 카테고리 추가 (AppColors.catTip 퍼플, catQuestion 틸)
+- 카테고리 선택 UI 카드 그리드 방식으로 개편 (LayoutBuilder, 아이콘 포함, 펫 3열 + 커뮤니티 2열 센터)
+- 커뮤니티 탭바: 컬러 틴트 + 선택 시 컬러 그림자
+- DB 제약 수정: `community_posts_category_check`에 tip/question 추가 (`community_category_expansion.sql`)
+
+**UX 개선**
+- GPS 좌표 → Nominatim 역지오코딩 (dart:io HttpClient, 패키지 없음): "서울 강남구 역삼동" 형식 표시
+- 제목/내용 입력 필드 X 클리어 버튼 (`ValueListenableBuilder<TextEditingValue>`)
+- 연락처 필드 제거
+
+**1:1 채팅 시스템**
+- `chat_rooms` / `chat_messages` 테이블 + RLS + Realtime (DB 실행 완료)
+  - 채팅방 생성 시 author_id가 실제 게시글 owner인지 + 자기 자신과 채팅 불가 검증
+  - last_message_at은 DB trigger 자동 갱신 (클라이언트 update 권한 없음)
+- `ChatService`: getOrCreateRoom / getMyRooms / getMessages / sendMessage / subscribeToRoom
+- `ChatRoomScreen`: 실시간 채팅 UI, 메시지 중복 제거, 날짜 구분선, 자동 스크롤
+- `ChatListScreen`: 채팅 목록, 마지막 메시지 시간 표시
+- 게시글 상세 하단 "찾았어요! 연락하기" 버튼 → 1:1 채팅 시작
+- 게시글 owner: "해결됨으로 표시" / "다시 모집하기" 토글 (tip 제외)
+- 커뮤니티 AppBar 채팅 아이콘 → ChatListScreen
+
+**FCM 푸시 알림 (새 채팅 메시지)**
+- `send-notification` Edge Function: `new_chat_message` 케이스 추가
+  - payload: `{ trigger_type, recipient_id, sender_name, post_title }`
+  - FCM data에 `type: 'chat'` 포함 → 앱에서 채팅 화면 라우팅 분기
+- 멀티 디바이스 지원: 케이스 1/3/4 전부 `.maybeSingle()` → 전체 토큰 조회 + `Promise.all`
+- `NotificationService`: `onChatNotificationTap` 콜백 + `consumePendingNotification()` (cold start 라우팅 유실 방지)
+- `app.dart`: 채팅 알림 탭 → `ChatListScreen` push
+
+**마이그레이션 / 배포**
+- `supabase/migrations/community_category_expansion.sql` — DB 실행 완료
+- `supabase/migrations/chat_schema.sql` — DB 실행 완료
+- `send-notification` Edge Function 재배포 완료
+- `flutter analyze` 0 issues
+
+---
+
 ## 2026-06-08
 
 ### 한 일 (저녁)
