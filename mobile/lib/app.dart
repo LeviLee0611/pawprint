@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'core/services/notification_service.dart';
 import 'features/calendar/screens/calendar_screen.dart';
+import 'features/chat/screens/chat_list_screen.dart';
 import 'features/community/screens/community_screen.dart';
 import 'features/feed/screens/feed_screen.dart';
 import 'features/profile/screens/profile_screen.dart';
@@ -24,12 +25,23 @@ class _AppState extends State<App> {
     NotificationService.onNotificationTap = () {
       if (mounted) _jumpToTab(0);
     };
+    NotificationService.onChatNotificationTap = () {
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const ChatListScreen()),
+      );
+    };
+    // cold start: 콜백 등록 완료 후 보류 중인 알림 처리
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.consumePendingNotification();
+    });
   }
 
   @override
   void dispose() {
     _pageController.dispose();
     NotificationService.onNotificationTap = null;
+    NotificationService.onChatNotificationTap = null;
     super.dispose();
   }
 

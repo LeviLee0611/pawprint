@@ -7,6 +7,8 @@ import '../../../core/theme/app_theme.dart';
 import '../models/community_post_model.dart';
 import '../models/sighting_report_model.dart';
 import '../services/community_service.dart';
+import '../../chat/services/chat_service.dart';
+import '../../chat/screens/chat_room_screen.dart';
 import '../../feed/widgets/report_bottom_sheet.dart';
 import 'add_sighting_screen.dart';
 import 'edit_community_post_screen.dart';
@@ -22,16 +24,20 @@ class CommunityPostDetailScreen extends StatefulWidget {
 
 class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
   final _service = CommunityService();
+  final _chatService = ChatService();
   late CommunityPost _post;
   List<SightingReport> _sightings = [];
   bool _loadingSightings = false;
+  bool _openingChat = false;
   int _imageIndex = 0;
 
   static const _catColors = {
-    'lost': AppColors.error,
-    'found': AppColors.info,
-    'rehome': AppColors.success,
-    'looking': AppColors.warning,
+    'lost':     AppColors.error,
+    'found':    AppColors.info,
+    'rehome':   AppColors.success,
+    'looking':  AppColors.warning,
+    'tip':      AppColors.catTip,
+    'question': AppColors.catQuestion,
   };
 
   @override
@@ -86,6 +92,53 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
                       },
                     ),
                     if (isMyPost) ...[
+                      const Divider(height: 1),
+                      // 해결됨 처리 / 재오픈
+                      if (_post.category != 'tip')
+                        ListTile(
+                          leading: Icon(
+                            _post.isResolved
+                                ? Icons.refresh_rounded
+                                : Icons.check_circle_outline_rounded,
+                            color: _post.isResolved
+                                ? AppColors.textSecondary
+                                : AppColors.success,
+                          ),
+                          title: Text(
+                            _post.isResolved ? '다시 모집하기' : '해결됨으로 표시',
+                            style: TextStyle(
+                                color: _post.isResolved
+                                    ? AppColors.textSecondary
+                                    : AppColors.success,
+                                fontWeight: FontWeight.w600),
+                          ),
+                          onTap: () async {
+                            Navigator.pop(context);
+                            try {
+                              await _service.updatePost(
+                                postId: _post.id,
+                                title: _post.title,
+                                content: _post.content,
+                                petName: _post.petName,
+                                petType: _post.petType,
+                                location: _post.location,
+                                address: _post.address,
+                                latitude: _post.latitude,
+                                longitude: _post.longitude,
+                                status: _post.isResolved ? 'open' : 'resolved',
+                              );
+                              if (mounted) {
+                                setState(() => _post = _post.copyWith(
+                                    status: _post.isResolved ? 'open' : 'resolved'));
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('오류: $e')));
+                              }
+                            }
+                          },
+                        ),
                       const Divider(height: 1),
                       // 수정
                       ListTile(
@@ -192,6 +245,46 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
     );
   }
 
+  String _contactLabel(String category) {
+    switch (category) {
+      case 'lost':     return '찾았어요! 연락하기';
+      case 'rehome':   return '관심 있어요! 연락하기';
+      case 'looking':  return '분양해드릴게요! 연락하기';
+      case 'question': return '답해드릴게요! 연락하기';
+      default:         return '연락하기';
+    }
+  }
+
+  Future<void> _openChat(CommunityPost post, String? myId) async {
+    if (myId == null) return;
+    setState(() => _openingChat = true);
+    try {
+      final room = await _chatService.getOrCreateRoom(
+        postId: post.id,
+        authorId: post.ownerId,
+      );
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ChatRoomScreen(
+            room: room,
+            otherName: post.ownerName ?? '사용자',
+            otherAvatar: post.ownerAvatarUrl,
+            postTitle: post.title,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('오류: $e'), backgroundColor: AppColors.error));
+      }
+    } finally {
+      if (mounted) setState(() => _openingChat = false);
+    }
+  }
+
   Future<void> _openMaps(double lat, double lng) async {
     final uri = Uri.parse('geo:$lat,$lng?q=$lat,$lng');
     if (await canLaunchUrl(uri)) {
@@ -207,6 +300,11 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
     final isMyPost = post.ownerId == myId;
     final isLost = post.category == 'lost';
 
+    // 연락하기 버튼 표시 조건: 비내 글, tip 아님, 로그인됨
+    final showContactBtn = !isMyPost &&
+        myId != null &&
+        post.category != 'tip';
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -219,6 +317,31 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
           ),
         ],
       ),
+      bottomNavigationBar: showContactBtn
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: ElevatedButton.icon(
+                  onPressed: _openingChat ? null : () => _openChat(post, myId),
+                  icon: _openingChat
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.chat_bubble_outline_rounded, size: 18),
+                  label: Text(_contactLabel(post.category)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: catColor,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(48),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
+            )
+          : null,
       body: ListView(
         padding: const EdgeInsets.only(bottom: 100),
         children: [

@@ -121,6 +121,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
       }
       if (!mounted) return;
       _commentController.clear();
+      _commentFocusNode.unfocus();
       setState(() {
         _replyingTo = null;
         _comments.add(comment);
@@ -545,22 +546,67 @@ class _OriginalPost extends StatelessWidget {
   }
 }
 
-class _LikeBtn extends StatelessWidget {
+class _LikeBtn extends StatefulWidget {
   final bool isLiked;
   final VoidCallback onTap;
 
   const _LikeBtn({required this.isLiked, required this.onTap});
 
   @override
+  State<_LikeBtn> createState() => _LikeBtnState();
+}
+
+class _LikeBtnState extends State<_LikeBtn> with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl;
+  late final Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+    _scale = TweenSequence<double>([
+      TweenSequenceItem(
+          tween: Tween(begin: 1.0, end: 1.4)
+              .chain(CurveTween(curve: Curves.easeOut)),
+          weight: 40),
+      TweenSequenceItem(
+          tween: Tween(begin: 1.4, end: 1.0)
+              .chain(CurveTween(curve: Curves.elasticOut)),
+          weight: 60),
+    ]).animate(_ctrl);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _handleTap() {
+    _ctrl.forward(from: 0);
+    widget.onTap();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
-      child: Icon(
-        isLiked
-            ? Icons.favorite_rounded
-            : Icons.favorite_border_rounded,
-        size: 24,
-        color: isLiked ? AppColors.error : AppColors.textHint,
+      onTap: _handleTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+        child: ScaleTransition(
+          scale: _scale,
+          child: Icon(
+            widget.isLiked
+                ? Icons.favorite_rounded
+                : Icons.favorite_border_rounded,
+            size: 24,
+            color: widget.isLiked ? AppColors.error : AppColors.textHint,
+          ),
+        ),
       ),
     );
   }

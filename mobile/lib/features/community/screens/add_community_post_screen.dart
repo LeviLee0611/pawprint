@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -31,15 +32,25 @@ class _AddCommunityPostScreenState extends State<AddCommunityPostScreen> {
   final _addressCtrl = TextEditingController();
 
   static const _categoryOptions = [
-    ('lost', '실종 신고', AppColors.error),
-    ('rehome', '입양 보내기', AppColors.success),
-    ('looking', '입양 원해요', AppColors.warning),
+    ('lost',     '실종 신고',   AppColors.error,       Icons.location_searching_rounded),
+    ('rehome',   '입양 보내기', AppColors.success,     Icons.home_rounded),
+    ('looking',  '입양 원해요', AppColors.warning,     Icons.favorite_rounded),
+    ('tip',      '꿀팁/정보',   AppColors.catTip,      Icons.lightbulb_rounded),
+    ('question', '질문/고민',   AppColors.catQuestion, Icons.chat_bubble_outline_rounded),
   ];
 
   @override
   void initState() {
     super.initState();
     _category = widget.initialCategory;
+    if (_category == 'lost') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          LocationService.ensurePermission(context,
+              reason: '실종 신고에 위치를 첨부하려면 위치 권한이 필요해요.');
+        }
+      });
+    }
   }
 
   @override
@@ -73,8 +84,12 @@ class _AddCommunityPostScreenState extends State<AddCommunityPostScreen> {
       setState(() {
         _latitude = pos.latitude;
         _longitude = pos.longitude;
-        _addressCtrl.text = '위치 가져옴 (${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)})';
       });
+      final address = await _reverseGeocode(pos.latitude, pos.longitude);
+      if (mounted) {
+        _addressCtrl.text = address ??
+            '${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}';
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -86,7 +101,34 @@ class _AddCommunityPostScreenState extends State<AddCommunityPostScreen> {
     }
   }
 
-  bool get _showPetName => _category != 'looking';
+  Future<String?> _reverseGeocode(double lat, double lon) async {
+    try {
+      final client = HttpClient();
+      final req = await client.getUrl(Uri.parse(
+          'https://nominatim.openstreetmap.org/reverse?lat=$lat&lon=$lon&format=json&accept-language=ko'));
+      req.headers.set('User-Agent', 'pawprint-app/1.0');
+      final res = await req.close();
+      final body = await res.transform(const Utf8Decoder()).join();
+      client.close();
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final addr = json['address'] as Map<String, dynamic>?;
+      if (addr != null) {
+        final parts = [
+          addr['city'] ?? addr['county'],
+          addr['suburb'] ?? addr['neighbourhood'],
+          addr['road'],
+        ].whereType<String>().where((s) => s.isNotEmpty).toList();
+        if (parts.isNotEmpty) return parts.join(' ');
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  bool get _showPetName =>
+      _category != 'looking' && _category != 'tip' && _category != 'question';
+
+  bool get _isPetCategory =>
+      _category != 'tip' && _category != 'question';
 
   Future<void> _pickImages() async {
     if (_imageFiles.length >= 5) return;
@@ -179,41 +221,8 @@ class _AddCommunityPostScreenState extends State<AddCommunityPostScreen> {
           children: [
             // 유형 선택
             _label('유형'),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _categoryOptions.map((opt) {
-                final (value, label, color) = opt;
-                final selected = _category == value;
-                return GestureDetector(
-                  onTap: () => setState(() => _category = value),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: selected ? color : AppColors.surface,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: selected ? color : AppColors.brownLight,
-                        width: 1.5,
-                      ),
-                      boxShadow: selected
-                          ? [BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 2))]
-                          : [],
-                    ),
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: selected ? Colors.white : AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
+            const SizedBox(height: 10),
+            _buildCategoryGrid(),
             const SizedBox(height: 20),
 
             // 사진
@@ -229,7 +238,7 @@ class _AddCommunityPostScreenState extends State<AddCommunityPostScreen> {
             // 제목
             _label('제목 *'),
             const SizedBox(height: 8),
-            _inputField(_titleCtrl, '제목을 입력해주세요'),
+            _inputField(_titleCtrl, '제목을 입력해주세요', clearable: true),
             const SizedBox(height: 16),
 
             // 반려동물 이름 (입양원해요 제외)
@@ -240,17 +249,19 @@ class _AddCommunityPostScreenState extends State<AddCommunityPostScreen> {
               const SizedBox(height: 16),
             ],
 
-            // 종류
-            _label('반려동물 종류'),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _petChip('cat', '🐱 고양이'),
-                const SizedBox(width: 10),
-                _petChip('dog', '🐶 강아지'),
-              ],
-            ),
-            const SizedBox(height: 16),
+            // 종류 (펫 관련 카테고리만)
+            if (_isPetCategory) ...[
+              _label('반려동물 종류'),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _petChip('cat', '🐱 고양이'),
+                  const SizedBox(width: 10),
+                  _petChip('dog', '🐶 강아지'),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
 
             // 실종 위치 (실종 신고일 때만)
             if (_category == 'lost') ...[
@@ -314,8 +325,8 @@ class _AddCommunityPostScreenState extends State<AddCommunityPostScreen> {
               const SizedBox(height: 16),
             ],
 
-            // 장소/지역 (실종 아닐 때)
-            if (_category != 'lost') ...[
+            // 장소/지역 (펫 관련 카테고리 중 실종 아닐 때)
+            if (_isPetCategory && _category != 'lost') ...[
               _label(_category == 'looking' ? '원하는 지역' : '장소/지역'),
               const SizedBox(height: 8),
               _inputField(
@@ -329,21 +340,89 @@ class _AddCommunityPostScreenState extends State<AddCommunityPostScreen> {
             // 내용
             _label('상세 내용'),
             const SizedBox(height: 8),
-            _inputField(_contentCtrl, '자세한 내용을 입력해주세요', maxLines: 5),
+            _inputField(_contentCtrl, '자세한 내용을 입력해주세요', maxLines: 5, clearable: true),
             const SizedBox(height: 16),
 
-            // 연락처
-            _label('연락처'),
-            const SizedBox(height: 8),
-            _inputField(
-              _contactCtrl,
-              '전화번호 또는 카카오 오픈채팅 링크 (선택)',
-              icon: Icons.phone_outlined,
-            ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildCategoryGrid() {
+    return LayoutBuilder(builder: (context, constraints) {
+      final tileW = (constraints.maxWidth - 16) / 3;
+      Widget tile(int i) {
+        final (value, label, color, icon) = _categoryOptions[i];
+        final selected = _category == value;
+        return GestureDetector(
+          onTap: () {
+            setState(() => _category = value);
+            if (value == 'lost') {
+              LocationService.ensurePermission(context,
+                  reason: '실종 신고에 위치를 첨부하려면 위치 권한이 필요해요.');
+            }
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            width: tileW,
+            height: 76,
+            decoration: BoxDecoration(
+              color: selected ? color : Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: selected ? color : AppColors.brownLight,
+                width: 1.5,
+              ),
+              boxShadow: selected
+                  ? [BoxShadow(
+                      color: color.withValues(alpha: 0.35),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4))]
+                  : [],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(icon,
+                      key: ValueKey(selected),
+                      color: selected ? Colors.white : color,
+                      size: 26),
+                ),
+                const SizedBox(height: 7),
+                Text(label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                        height: 1.1,
+                        color: selected ? Colors.white : AppColors.textSecondary)),
+              ],
+            ),
+          ),
+        );
+      }
+
+      return Column(
+        children: [
+          Row(children: [
+            tile(0),
+            const SizedBox(width: 8),
+            tile(1),
+            const SizedBox(width: 8),
+            tile(2),
+          ]),
+          const SizedBox(height: 8),
+          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            tile(3),
+            const SizedBox(width: 8),
+            tile(4),
+          ]),
+        ],
+      );
+    });
   }
 
   Widget _label(String text) {
@@ -355,7 +434,7 @@ class _AddCommunityPostScreenState extends State<AddCommunityPostScreen> {
   }
 
   Widget _inputField(TextEditingController ctrl, String hint,
-      {int maxLines = 1, IconData? icon}) {
+      {int maxLines = 1, IconData? icon, bool clearable = false}) {
     return TextField(
       controller: ctrl,
       maxLines: maxLines,
@@ -363,6 +442,19 @@ class _AddCommunityPostScreenState extends State<AddCommunityPostScreen> {
         hintText: hint,
         hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 14),
         prefixIcon: icon != null ? Icon(icon, color: AppColors.textHint, size: 20) : null,
+        suffixIcon: clearable
+            ? ValueListenableBuilder<TextEditingValue>(
+                valueListenable: ctrl,
+                builder: (_, value, _) => value.text.isEmpty
+                    ? const SizedBox.shrink()
+                    : IconButton(
+                        icon: const Icon(Icons.close_rounded,
+                            size: 18, color: AppColors.textHint),
+                        onPressed: ctrl.clear,
+                        splashRadius: 16,
+                      ),
+              )
+            : null,
         filled: true,
         fillColor: Colors.white,
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

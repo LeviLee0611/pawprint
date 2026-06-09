@@ -69,7 +69,8 @@ async function sendFcm(
   title: string,
   body: string,
   projectId: string,
-  accessToken: string
+  accessToken: string,
+  data?: Record<string, string>
 ): Promise<boolean> {
   try {
     const res = await fetch(
@@ -81,7 +82,11 @@ async function sendFcm(
           Authorization: `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
-          message: { token: fcmToken, notification: { title, body } },
+          message: {
+            token: fcmToken,
+            notification: { title, body },
+            ...(data && { data }),
+          },
         }),
       }
     )
@@ -152,13 +157,12 @@ serve(async (req) => {
         }
       }
 
-      // FCM 토큰 조회
-      const { data: tokenRow } = await supabase
+      // FCM 토큰 조회 (멀티 디바이스)
+      const { data: tokenRows } = await supabase
         .from('fcm_tokens')
         .select('token')
         .eq('owner_id', record.recipient_id)
-        .maybeSingle()
-      if (!tokenRow) return ok({ skipped: 'no token' })
+      if (!tokenRows || tokenRows.length === 0) return ok({ skipped: 'no token' })
 
       // 발신자 이름 조회
       const { data: actor } = await supabase
@@ -174,11 +178,12 @@ serve(async (req) => {
         follow:  { title: '댕냥스토리', body: `${actorName}님이 팔로우했어요 🐾` },
       }
 
-      const sent = await sendFcm(
-        tokenRow.token, messages[notifType].title,
-        messages[notifType].body, projectId, accessToken
+      const results = await Promise.all(
+        tokenRows.map((row: { token: string }) =>
+          sendFcm(row.token, messages[notifType].title, messages[notifType].body, projectId, accessToken)
+        )
       )
-      return ok({ sent })
+      return ok({ sent: results.filter(Boolean).length })
     }
 
     // ── 케이스 2: new_post (팔로워에게 새 게시글 알림) ──
@@ -249,22 +254,43 @@ serve(async (req) => {
       const record = payload.record
       const adminId = '675dccab-0660-4f6f-852b-5807c4d07f63'
 
-      const { data: tokenRow } = await supabase
+      const { data: adminTokens } = await supabase
         .from('fcm_tokens')
         .select('token')
         .eq('owner_id', adminId)
-        .maybeSingle()
-      if (!tokenRow) return ok({ skipped: 'no admin token' })
+      if (!adminTokens || adminTokens.length === 0) return ok({ skipped: 'no admin token' })
 
       const typeLabel = record.target_type === 'post' ? '게시글' : '댓글'
-      await sendFcm(
-        tokenRow.token,
-        '🚨 신고 접수',
-        `${typeLabel} 신고가 들어왔어요 — ${record.reason}`,
-        projectId,
-        accessToken
+      const results = await Promise.all(
+        adminTokens.map((row: { token: string }) =>
+          sendFcm(row.token, '🚨 신고 접수', `${typeLabel} 신고가 들어왔어요 — ${record.reason}`, projectId, accessToken)
+        )
       )
-      return ok({ sent: true })
+      return ok({ sent: results.filter(Boolean).length })
+    }
+
+    // ── 케이스 4: new_chat_message (채팅 상대방에게 메시지 알림) ──
+    // payload: { trigger_type: 'new_chat_message', recipient_id, sender_name, post_title? }
+    if (payload.trigger_type === 'new_chat_message') {
+      const { recipient_id, sender_name, post_title } = payload
+
+      // 멀티 디바이스: 유저가 여러 토큰을 가질 수 있으므로 전체 조회
+      const { data: tokenRows } = await supabase
+        .from('fcm_tokens')
+        .select('token')
+        .eq('owner_id', recipient_id)
+      if (!tokenRows || tokenRows.length === 0) return ok({ skipped: 'no token' })
+
+      const body = post_title
+        ? `${sender_name ?? '누군가'}: ${post_title}`
+        : `${sender_name ?? '누군가'}님이 메시지를 보냈어요`
+
+      const results = await Promise.all(
+        tokenRows.map((row: { token: string }) =>
+          sendFcm(row.token, '새 메시지 💬', body, projectId, accessToken, { type: 'chat' })
+        )
+      )
+      return ok({ sent: results.filter(Boolean).length })
     }
 
     return ok({ skipped: 'unhandled trigger' })

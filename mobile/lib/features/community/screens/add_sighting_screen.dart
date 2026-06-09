@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../../core/services/location_service.dart';
 import '../../../core/theme/app_theme.dart';
@@ -21,6 +23,17 @@ class _AddSightingScreenState extends State<AddSightingScreen> {
   double? _longitude;
   bool _gettingLocation = false;
   bool _submitting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        LocationService.ensurePermission(context,
+            reason: '목격 위치를 첨부하려면 위치 권한이 필요해요.');
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -49,8 +62,12 @@ class _AddSightingScreenState extends State<AddSightingScreen> {
       setState(() {
         _latitude = pos.latitude;
         _longitude = pos.longitude;
-        _addressCtrl.text = '현재 위치 (${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)})';
       });
+      final address = await _reverseGeocode(pos.latitude, pos.longitude);
+      if (mounted) {
+        _addressCtrl.text = address ??
+            '${pos.latitude.toStringAsFixed(4)}, ${pos.longitude.toStringAsFixed(4)}';
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -60,6 +77,29 @@ class _AddSightingScreenState extends State<AddSightingScreen> {
     } finally {
       if (mounted) setState(() => _gettingLocation = false);
     }
+  }
+
+  Future<String?> _reverseGeocode(double lat, double lon) async {
+    try {
+      final client = HttpClient();
+      final req = await client.getUrl(Uri.parse(
+          'https://nominatim.openstreetmap.org/reverse?lat=$lat&lon=$lon&format=json&accept-language=ko'));
+      req.headers.set('User-Agent', 'pawprint-app/1.0');
+      final res = await req.close();
+      final body = await res.transform(const Utf8Decoder()).join();
+      client.close();
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final addr = json['address'] as Map<String, dynamic>?;
+      if (addr != null) {
+        final parts = [
+          addr['city'] ?? addr['county'],
+          addr['suburb'] ?? addr['neighbourhood'],
+          addr['road'],
+        ].whereType<String>().where((s) => s.isNotEmpty).toList();
+        if (parts.isNotEmpty) return parts.join(' ');
+      }
+    } catch (_) {}
+    return null;
   }
 
   Future<void> _submit() async {

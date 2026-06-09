@@ -47,14 +47,28 @@
 - 인기 탭: likes_count 내림차순
 - 팔로우: `follows` 테이블, `UserProfileScreen`에서 팔로우 버튼
 
-### 커뮤니티 (나눔 & 실종)
-- `community_posts` 테이블: id / owner_id / category / title / content / image_urls / pet_name / pet_type / location / contact / status / address / latitude / longitude
-- 카테고리: `lost`(실종) / `rehome`(입양보내기) / `looking`(입양원해요)
-- 탭 필터: 전체 / 실종 / 나눔&입양
-- 실종 글: GPS 위치 첨부 → 상세에서 Google Maps 연결
+### 커뮤니티 (나눔 & 실종 & 꿀팁 & 질문)
+- `community_posts` 테이블: id / owner_id / category / title / content / image_urls / pet_name / pet_type / location / status / address / latitude / longitude
+- 카테고리: `lost`(실종) / `rehome`(입양보내기) / `looking`(입양원해요) / `tip`(꿀팁/정보) / `question`(질문/고민)
+- 탭 필터: 전체 / 실종 / 나눔&입양 / 꿀팁/정보 / 질문/고민
+- 실종 글: GPS 위치 → Nominatim 역지오코딩(한국어 주소) + 상세에서 Google Maps 연결
 - 목격 신고 (`sighting_reports`): 발견 위치(GPS) + 메모 → 실종 글에 누적 표시
 - 글 옵션 ⋮: 공유 / 수정 / 삭제 / 신고 (내 글 vs 남의 글 분기)
 - status 값: `open` / `resolved` / `hidden`
+- 게시글 owner: "해결됨으로 표시" / "다시 모집하기" 토글 (tip/question 제외)
+- 비소유자: "찾았어요! 연락하기" 등 카테고리별 버튼 → 1:1 채팅 시작
+
+### 1:1 채팅
+- `chat_rooms` 테이블: id / post_id / author_id / helper_id / last_message_at / created_at
+  - unique(post_id, helper_id) — 게시글당 helper 1개 방
+  - RLS: helper만 방 생성(author_id가 실제 게시글 owner 검증 + 자기 자신 채팅 불가), 참여자만 조회
+  - last_message_at: DB trigger 자동 갱신 (클라이언트 update 권한 없음)
+- `chat_messages` 테이블: id / room_id / sender_id / content / created_at
+  - RLS: 방 참여자만 조회·전송
+  - Supabase Realtime 활성화
+- `ChatService`: getOrCreateRoom / getMyRooms / getMessages / sendMessage / subscribeToRoom
+- `ChatRoomScreen`: 실시간 메시지, 날짜 구분선, 자동 스크롤
+- `ChatListScreen`: 전체 채팅 목록, 마지막 메시지 시간
 
 ### 신고 시스템
 - `reports` 테이블: reporter_id / target_type / target_id / reason
@@ -119,9 +133,12 @@
 | `likes` | id, post_id, owner_id |
 | `saves` | id, post_id, owner_id |
 | `follows` | id, follower_id, following_id |
-| `community_posts` | id, owner_id, category, title, content, image_urls, pet_name, pet_type, location, contact, status, address, latitude, longitude |
+| `community_posts` | id, owner_id, category, title, content, image_urls, pet_name, pet_type, location, status, address, latitude, longitude |
 | `sighting_reports` | id, post_id, reporter_id, address, latitude, longitude, note |
 | `reports` | id, reporter_id, target_type, target_id, reason |
+| `chat_rooms` | id, post_id, author_id, helper_id, last_message_at, created_at |
+| `chat_messages` | id, room_id, sender_id, content, created_at |
+| `fcm_tokens` | owner_id, token, updated_at |
 
 ---
 
@@ -141,15 +158,13 @@
 
 ## 미구현 / 예정
 
-### 🔜 다음 (2026-06-09 — iOS 작업 예정)
-- [ ] **iOS 빌드 설정** — Xcode 프로젝트 설정, Info.plist 권한 추가
-  - `NSLocationWhenInUseUsageDescription` (위치 권한 문구)
-  - `NSPhotoLibraryUsageDescription` (이미지 피커)
-  - `NSCameraUsageDescription` (카메라)
-- [ ] **iOS Podfile / CocoaPods** — geolocator, firebase_messaging, kakao SDK 의존성 확인
-- [ ] **카카오 로그인 iOS 설정** — URL Scheme, Info.plist `LSApplicationQueriesSchemes`
-- [ ] **iOS 시뮬레이터 or 실기기 빌드 테스트** — 크래시·레이아웃 이슈 확인
-- [ ] **피드 알고리즘 방향 결정 후 구현** — 팔로잉 기반 + 팔로잉 0명 fallback 유력
+### ✅ 2026-06-09 완료
+- 커뮤니티 카테고리 확장 (tip/question) + 카드 그리드 UI + 탭바 컬러 디자인
+- GPS 좌표 → Nominatim 역지오코딩 (한국어 주소 표시)
+- 1:1 채팅 시스템 전체 구현 (chat_rooms/chat_messages, RLS, Realtime, ChatService, ChatRoomScreen, ChatListScreen)
+- 새 채팅 메시지 FCM 푸시 알림 (멀티 디바이스, cold start 라우팅 안전 처리)
+- send-notification Edge Function 전 케이스 멀티 디바이스 지원
+- flutter analyze 0 issues
 
 ### ✅ 2026-06-08 완료
 - 전체 화면 디자인 시스템 통일 (AppColors/AppTextStyles/AppSpacing/AppRadius/AppShadows)
@@ -159,16 +174,15 @@
 - community_posts DB 보정 마이그레이션 실행 완료
 
 ### 우선순위 높음
-- [ ] 영상 업로드 (첫 프레임 썸네일 검열 방식)
 - [ ] 회원탈퇴 완전 처리 (`auth.users` 삭제 Edge Function + Storage 정리)
 - [ ] 다중 펫 캘린더 스위처
 - [ ] `LocationService.ensurePermission()` — 실종·발견 글쓰기 진입 시 연결
 
 ### 우선순위 중간
-- [ ] 푸시 알림 — 실종 목격 신고 시 위치 기반 알림
-- [ ] 커뮤니티 카테고리 확장 (꿀팁/정보, 질문/고민)
+- [ ] 목격 신고 시 위치 기반 푸시 알림
 - [ ] 글 수정 시 이미지 교체 + 검열 적용
 - [ ] 좋아요·저장 버튼 애니메이션 (ScaleTransition)
+- [ ] Nominatim → Edge Function 프록시 전환 (사용자 증가 시 1 req/sec 정책 대응)
 
 ### MVP 이후
 - [ ] AdMob 광고 연동

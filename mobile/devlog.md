@@ -2,6 +2,23 @@
 
 ---
 
+## 2026-06-09
+
+### ✅ 좋아요 버튼 ScaleTransition 애니메이션
+- `post_detail_screen.dart`의 `_LikeBtn` → StatefulWidget으로 변환
+- `AnimationController` + `TweenSequence` (1.0→1.4→1.0 elasticOut) 추가
+- feed_screen의 `_ActionBtn`과 동일한 bounce 패턴
+
+### ✅ 댓글 답글 UI (확인)
+- `_CommentThread` / `_ReplyRow` / 답글 배너 이미 완성 상태 확인
+- `_grouped` 로 parentId 기반 그루핑, 답글은 최상위 댓글 아래로 flatten
+
+### ✅ 피드 필터 서버사이드 (확인)
+- `pets!inner` JOIN + `.eq('pets.type', ...)` 으로 이미 서버사이드 처리 확인
+- 팔로잉 필터도 `.inFilter('owner_id', ids)` 서버사이드 처리
+
+---
+
 ## 2026-06-08
 
 ### ✅ 디자인 시스템 통일

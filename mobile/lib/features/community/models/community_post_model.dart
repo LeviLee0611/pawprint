@@ -1,7 +1,7 @@
 class CommunityPost {
   final String id;
   final String ownerId;
-  final String category; // 'lost' | 'found' | 'rehome' | 'looking'
+  final String category; // 'lost' | 'found' | 'rehome' | 'looking' | 'tip' | 'question'
   final String title;
   final String content;
   final List<String> imageUrls;
@@ -64,15 +64,37 @@ class CommunityPost {
 
   String get categoryLabel {
     switch (category) {
-      case 'lost': return '실종 신고';
-      case 'found': return '발견 신고';
-      case 'rehome': return '입양 보내기';
-      case 'looking': return '입양 원해요';
-      default: return category;
+      case 'lost':     return '실종 신고';
+      case 'found':    return '발견 신고';
+      case 'rehome':   return '입양 보내기';
+      case 'looking':  return '입양 원해요';
+      case 'tip':      return '꿀팁/정보';
+      case 'question': return '질문/고민';
+      default:         return category;
     }
   }
 
   bool get isOpen => status == 'open';
   bool get isResolved => status == 'resolved';
   bool get isHidden => status == 'hidden';
+
+  CommunityPost copyWith({String? status}) => CommunityPost(
+        id: id,
+        ownerId: ownerId,
+        category: category,
+        title: title,
+        content: content,
+        imageUrls: imageUrls,
+        petName: petName,
+        petType: petType,
+        location: location,
+        contact: contact,
+        status: status ?? this.status,
+        createdAt: createdAt,
+        ownerName: ownerName,
+        ownerAvatarUrl: ownerAvatarUrl,
+        address: address,
+        latitude: latitude,
+        longitude: longitude,
+      );
 }

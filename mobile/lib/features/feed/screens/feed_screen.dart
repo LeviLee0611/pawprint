@@ -27,7 +27,9 @@ class FeedScreen extends StatefulWidget {
 
 enum _FeedFilter { all, following, cat, dog, popular }
 
-class _FeedScreenState extends State<FeedScreen> {
+class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   final _postService = PostService();
   final _petService = PetService();
   final _followService = FollowService();
@@ -106,7 +108,7 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Future<void> _loadAll() async {
-    setState(() { _loading = true; _hasError = false; _hasMore = true; });
+    setState(() { _loading = _posts.isEmpty; _hasError = false; _hasMore = true; });
     try {
       final results = await Future.wait([
         _petService.getMyPets(),
@@ -132,7 +134,7 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Future<void> _loadPosts({bool reset = false}) async {
-    if (reset) setState(() { _posts = []; _hasMore = true; _rawOffset = 0; });
+    if (reset) setState(() { _hasMore = true; _rawOffset = 0; });
     try {
       final List<Post> rawPosts;
       if (_filter == _FeedFilter.popular) {
@@ -212,6 +214,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: PreferredSize(
@@ -272,7 +275,7 @@ class _FeedScreenState extends State<FeedScreen> {
                   MaterialPageRoute(
                       builder: (_) => AddPostScreen(pets: _myPets)),
                 );
-                await _loadAll();
+                _loadAll();
               },
         backgroundColor:
             _myPets.isEmpty ? AppColors.brownLight : AppColors.primary,
@@ -385,7 +388,7 @@ class _FeedScreenState extends State<FeedScreen> {
                 builder: (_) => PostDetailScreen(post: post),
               ),
             );
-            await _loadAll();
+            _loadAll();
           },
           onProfileTap: () => Navigator.push(
             context,
@@ -403,24 +406,49 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Widget _buildEmptyState() {
+    final (title, subtitle) = _emptyMessage();
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
-        SizedBox(height: MediaQuery.of(context).size.height * 0.15),
+        SizedBox(height: MediaQuery.of(context).size.height * 0.12),
         Center(
-          child: Image.asset('assets/images/빈화면_투명.png', width: 300),
+          child: Image.asset('assets/images/빈화면_투명.png', width: 260),
         ),
-        if (_myPets.isEmpty)
-          const Padding(
-            padding: EdgeInsets.only(top: 12),
-            child: Text(
-              '펫을 먼저 등록해주세요',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-            ),
-          ),
+        const SizedBox(height: 20),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColors.textPrimary),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          subtitle,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+        ),
       ],
     );
+  }
+
+  (String, String) _emptyMessage() {
+    if (_myPets.isEmpty) {
+      return ('아직 아무것도 없어요', '펫을 먼저 등록하면 피드가 활성화돼요 🐾');
+    }
+    switch (_filter) {
+      case _FeedFilter.following:
+        return ('팔로잉 피드가 비어있어요', '관심 있는 친구를 팔로우해보세요');
+      case _FeedFilter.cat:
+        return ('고양이 게시글이 없어요', '고양이 집사들의 첫 게시글을 기다리는 중이에요 🐱');
+      case _FeedFilter.dog:
+        return ('강아지 게시글이 없어요', '댕댕이 집사들의 첫 게시글을 기다리는 중이에요 🐶');
+      case _FeedFilter.popular:
+        return ('인기 게시글이 없어요', '좋아요를 많이 받은 게시글이 여기 모여요');
+      default:
+        return ('아직 게시글이 없어요', '첫 번째 글을 올려볼까요? 🐾');
+    }
   }
 }
 

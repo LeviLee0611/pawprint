@@ -22,7 +22,9 @@ class CalendarScreen extends StatefulWidget {
   State<CalendarScreen> createState() => _CalendarScreenState();
 }
 
-class _CalendarScreenState extends State<CalendarScreen> {
+class _CalendarScreenState extends State<CalendarScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   final _petService = PetService();
   final _recordService = RecordService();
   final _reminderService = ReminderService();
@@ -185,6 +187,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     if (_loadingPet) {
       return const Scaffold(
         body: Center(

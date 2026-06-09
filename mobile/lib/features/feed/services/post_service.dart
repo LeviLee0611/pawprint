@@ -215,57 +215,77 @@ class PostService {
   Future<Post> updatePost({
     required String postId,
     required String content,
-    File? newImageFile,
-    String? existingImageUrl,
-    bool removeImage = false,
+    List<String> keptImageUrls = const [],
+    List<File> newImageFiles = const [],
+    List<String> removedImageUrls = const [],
   }) async {
-    String? newImageUrl = existingImageUrl;
-    String? newStoragePath;
+    final userId = _supabase.auth.currentUser!.id;
+    final uploadedUrls = <String>[];
+    final uploadedPaths = <String>[];
 
-    if (newImageFile != null) {
-      final userId = _supabase.auth.currentUser!.id;
-      final ext = newImageFile.path.split('.').last.toLowerCase();
-      newStoragePath = '$userId/${DateTime.now().millisecondsSinceEpoch}.$ext';
-      await _supabase.storage
-          .from('post-images')
-          .upload(newStoragePath, newImageFile);
-      newImageUrl =
-          _supabase.storage.from('post-images').getPublicUrl(newStoragePath);
-    } else if (removeImage && existingImageUrl != null) {
-      newImageUrl = null;
+    if (newImageFiles.isNotEmpty) {
+      // 새 이미지 병렬 업로드
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final results = await Future.wait(
+        List.generate(newImageFiles.length, (i) async {
+          final file = newImageFiles[i];
+          final ext = file.path.split('.').last.toLowerCase();
+          final path = '$userId/${timestamp}_edit_$i.$ext';
+          await _supabase.storage.from('post-images').upload(path, file);
+          return MapEntry(
+              path, _supabase.storage.from('post-images').getPublicUrl(path));
+        }),
+      );
+      for (final e in results) {
+        uploadedPaths.add(e.key);
+        uploadedUrls.add(e.value);
+      }
+
+      // 새 이미지 검열
+      try {
+        final result = await _supabase.functions.invoke(
+          'moderate-images',
+          body: {'imageUrls': uploadedUrls},
+        );
+        final body = result.data as Map<String, dynamic>?;
+        if (body != null && body['safe'] == false) {
+          await _supabase.storage.from('post-images').remove(uploadedPaths);
+          throw Exception(body['reason'] ?? '부적절한 콘텐츠가 감지됐어요');
+        }
+      } catch (e) {
+        if (e is Exception && e.toString().contains('부적절한')) rethrow;
+      }
     }
+
+    final finalUrls = [...keptImageUrls, ...uploadedUrls];
 
     try {
       final data = await _supabase
           .from('posts')
           .update({
             'content': content,
-            'image_url': newImageUrl,
-            'image_urls': newImageUrl != null ? [newImageUrl] : [],
+            'image_url': finalUrls.isNotEmpty ? finalUrls.first : null,
+            'image_urls': finalUrls,
           })
           .eq('id', postId)
           .select(_postSelect)
           .single();
 
-      // DB 성공 후 기존 이미지 삭제
-      if (newImageFile != null && existingImageUrl != null) {
-        final oldPath = StoragePathUtil.fromUrl(existingImageUrl, 'post-images');
-        if (oldPath != null) {
-          try { await _supabase.storage.from('post-images').remove([oldPath]); } catch (_) {}
-        }
-      } else if (removeImage && existingImageUrl != null) {
-        final path = StoragePathUtil.fromUrl(existingImageUrl, 'post-images');
-        if (path != null) {
-          try { await _supabase.storage.from('post-images').remove([path]); } catch (_) {}
+      // DB 성공 후 삭제된 이미지 Storage에서 제거
+      if (removedImageUrls.isNotEmpty) {
+        final paths = removedImageUrls
+            .map((url) => StoragePathUtil.fromUrl(url, 'post-images'))
+            .whereType<String>()
+            .toList();
+        if (paths.isNotEmpty) {
+          try { await _supabase.storage.from('post-images').remove(paths); } catch (_) {}
         }
       }
 
       return Post.fromJson(data);
     } catch (e) {
-      if (newStoragePath != null) {
-        try {
-          await _supabase.storage.from('post-images').remove([newStoragePath]);
-        } catch (_) {}
+      if (uploadedPaths.isNotEmpty) {
+        try { await _supabase.storage.from('post-images').remove(uploadedPaths); } catch (_) {}
       }
       rethrow;
     }

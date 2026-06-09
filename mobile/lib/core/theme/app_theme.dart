@@ -36,18 +36,22 @@ class AppColors {
   static const peachLight = Color(0xFFFBE9E7);
 
   // ── 커뮤니티 카테고리 ───────────────────────────
-  static const catLost   = error;
-  static const catFound  = info;
-  static const catRehome = success;
-  static const catLooking = warning;
+  static const catLost     = error;
+  static const catFound    = info;
+  static const catRehome   = success;
+  static const catLooking  = warning;
+  static const catTip      = Color(0xFF8E24AA); // 꿀팁/정보
+  static const catQuestion = Color(0xFF00897B); // 질문/고민
 
   static Color categoryColor(String category) {
     switch (category) {
-      case 'lost':    return catLost;
-      case 'found':   return catFound;
-      case 'rehome':  return catRehome;
-      case 'looking': return catLooking;
-      default:        return primary;
+      case 'lost':     return catLost;
+      case 'found':    return catFound;
+      case 'rehome':   return catRehome;
+      case 'looking':  return catLooking;
+      case 'tip':      return catTip;
+      case 'question': return catQuestion;
+      default:         return primary;
     }
   }
 }

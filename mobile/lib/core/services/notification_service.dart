@@ -13,6 +13,10 @@ class NotificationService {
 
   // App이 등록하는 콜백 — 알림 탭 시 캘린더로 이동
   static VoidCallback? onNotificationTap;
+  // 채팅 알림 탭 시 호출 (type='chat' 데이터가 있을 때)
+  static VoidCallback? onChatNotificationTap;
+  // cold start 시 저장해 두는 초기 알림 타입 ('chat' | null)
+  static String? _pendingNotificationType;
 
   static Future<void> init() async {
     if (_initialized) return;
@@ -38,14 +42,19 @@ class NotificationService {
     );
 
     // 앱이 백그라운드일 때 알림 탭
-    _messageOpenedSub = FirebaseMessaging.onMessageOpenedApp.listen((_) {
-      onNotificationTap?.call();
+    _messageOpenedSub = FirebaseMessaging.onMessageOpenedApp.listen((msg) {
+      if (msg.data['type'] == 'chat') {
+        onChatNotificationTap?.call();
+      } else {
+        onNotificationTap?.call();
+      }
     });
 
     // 앱이 종료된 상태에서 알림 탭으로 실행
+    // 콜백이 아직 등록 안 됐을 수 있으므로 타입만 저장 → consumePendingNotification에서 처리
     final initial = await _messaging.getInitialMessage();
     if (initial != null) {
-      onNotificationTap?.call();
+      _pendingNotificationType = initial.data['type'] as String?;
     }
   }
 
@@ -72,6 +81,18 @@ class NotificationService {
     }
   }
 
+  // App.initState에서 콜백 등록 후 호출 — cold start 알림 처리
+  static void consumePendingNotification() {
+    final type = _pendingNotificationType;
+    _pendingNotificationType = null;
+    if (type == null) return;
+    if (type == 'chat') {
+      onChatNotificationTap?.call();
+    } else {
+      onNotificationTap?.call();
+    }
+  }
+
   static Future<void> clearToken() async {
     // DB 삭제와 FCM 삭제를 분리 — 한쪽 실패가 다른 작업을 막지 않도록
     try {
@@ -93,6 +114,7 @@ class NotificationService {
     await _messageOpenedSub?.cancel();
     _tokenRefreshSub = null;
     _messageOpenedSub = null;
+    onChatNotificationTap = null;
     _initialized = false;
   }
 }

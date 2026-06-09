@@ -18,15 +18,21 @@ class _EditPostScreenState extends State<EditPostScreen> {
   late final TextEditingController _contentController;
   final _postService = PostService();
 
-  File? _newImageFile;
-  bool _removeImage = false;
+  late List<String> _keptUrls;   // 기존 이미지 중 유지할 것들
+  final List<File> _newFiles = [];     // 새로 추가한 파일
+  final List<String> _removedUrls = []; // 삭제 예정 URL
+
   bool _loading = false;
+
+  static const _maxImages = 5;
+
+  int get _totalCount => _keptUrls.length + _newFiles.length;
 
   @override
   void initState() {
     super.initState();
-    _contentController =
-        TextEditingController(text: widget.post.content);
+    _contentController = TextEditingController(text: widget.post.content);
+    _keptUrls = List<String>.from(widget.post.imageUrls);
   }
 
   @override
@@ -35,19 +41,25 @@ class _EditPostScreenState extends State<EditPostScreen> {
     super.dispose();
   }
 
-  String? get _currentImageUrl =>
-      _removeImage ? null : widget.post.imageUrl;
-
-  Future<void> _pickImage() async {
+  Future<void> _pickImages() async {
+    final remaining = _maxImages - _totalCount;
+    if (remaining <= 0) return;
     final picker = ImagePicker();
-    final picked =
-        await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
-    if (picked != null) {
-      setState(() {
-        _newImageFile = File(picked.path);
-        _removeImage = false;
-      });
-    }
+    final picked = await picker.pickMultiImage(imageQuality: 80);
+    if (picked.isEmpty) return;
+    final toAdd = picked.take(remaining).map((x) => File(x.path)).toList();
+    setState(() => _newFiles.addAll(toAdd));
+  }
+
+  void _removeExisting(int index) {
+    setState(() {
+      _removedUrls.add(_keptUrls[index]);
+      _keptUrls.removeAt(index);
+    });
+  }
+
+  void _removeNew(int index) {
+    setState(() => _newFiles.removeAt(index));
   }
 
   Future<void> _submit() async {
@@ -62,9 +74,9 @@ class _EditPostScreenState extends State<EditPostScreen> {
       final updated = await _postService.updatePost(
         postId: widget.post.id,
         content: _contentController.text.trim(),
-        newImageFile: _newImageFile,
-        existingImageUrl: widget.post.imageUrl,
-        removeImage: _removeImage,
+        keptImageUrls: _keptUrls,
+        newImageFiles: _newFiles,
+        removedImageUrls: _removedUrls,
       );
       if (mounted) Navigator.pop(context, updated);
     } catch (e) {
@@ -83,7 +95,10 @@ class _EditPostScreenState extends State<EditPostScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
         title: const Text('게시글 수정'),
         actions: [
           Padding(
@@ -131,65 +146,61 @@ class _EditPostScreenState extends State<EditPostScreen> {
                           const BorderSide(color: AppColors.brownLight)),
                   focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(AppRadius.md),
-                      borderSide:
-                          const BorderSide(color: AppColors.primary, width: 1.5)),
+                      borderSide: const BorderSide(
+                          color: AppColors.primary, width: 1.5)),
                   contentPadding: const EdgeInsets.all(16),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
 
-              // 이미지 미리보기
-              if (_newImageFile != null) ...[
-                _buildImagePreview(
-                  child: Image.file(_newImageFile!,
-                      width: double.infinity,
-                      height: 200,
-                      fit: BoxFit.cover),
-                  onRemove: () =>
-                      setState(() => _newImageFile = null),
+              // 이미지 그리드
+              if (_totalCount > 0) ...[
+                SizedBox(
+                  height: 96,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      // 기존 유지 이미지
+                      ..._keptUrls.asMap().entries.map((e) => _ImageThumb(
+                            child: Image.network(e.value,
+                                width: 88,
+                                height: 88,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => Container(
+                                    width: 88,
+                                    height: 88,
+                                    color: AppColors.primaryLight)),
+                            onRemove: () => _removeExisting(e.key),
+                          )),
+                      // 새로 추가한 이미지
+                      ..._newFiles.asMap().entries.map((e) => _ImageThumb(
+                            child: Image.file(e.value,
+                                width: 88, height: 88, fit: BoxFit.cover),
+                            onRemove: () => _removeNew(e.key),
+                          )),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 12),
-              ] else if (_currentImageUrl != null) ...[
-                _buildImagePreview(
-                  child: Image.network(_currentImageUrl!,
-                      width: double.infinity,
-                      height: 200,
-                      fit: BoxFit.cover),
-                  onRemove: () =>
-                      setState(() => _removeImage = true),
-                ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
               ],
 
-              if (widget.post.imageUrls.length > 1)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppColors.card,
-                    borderRadius: BorderRadius.circular(AppRadius.sm),
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: _totalCount >= _maxImages ? null : _pickImages,
+                    icon: const Icon(Icons.image_outlined,
+                        color: AppColors.primary, size: 18),
+                    label: Text(
+                      _totalCount == 0 ? '사진 추가' : '사진 추가 ($_totalCount/$_maxImages)',
+                      style: const TextStyle(color: AppColors.primary, fontSize: 13),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.primaryLight),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                    ),
                   ),
-                  child: const Text(
-                    '사진이 여러 장인 게시글은 수정 시 사진이 첫 번째 한 장으로 교체됩니다.',
-                    style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
-                  ),
-                ),
-
-              OutlinedButton.icon(
-                onPressed: _pickImage,
-                icon: const Icon(Icons.image_outlined,
-                    color: AppColors.primary),
-                label: Text(
-                  (_newImageFile != null || _currentImageUrl != null)
-                      ? '사진 변경'
-                      : '사진 추가',
-                  style: const TextStyle(color: AppColors.primary),
-                ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.primaryLight),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                ),
+                ],
               ),
             ],
           ),
@@ -197,32 +208,38 @@ class _EditPostScreenState extends State<EditPostScreen> {
       ),
     );
   }
+}
 
-  Widget _buildImagePreview({
-    required Widget child,
-    required VoidCallback onRemove,
-  }) {
-    return Stack(
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: child,
-        ),
-        Positioned(
-          top: 8,
-          right: 8,
-          child: GestureDetector(
-            onTap: onRemove,
-            child: Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(20)),
-              child: const Icon(Icons.close, color: Colors.white, size: 18),
+class _ImageThumb extends StatelessWidget {
+  final Widget child;
+  final VoidCallback onRemove;
+  const _ImageThumb({required this.child, required this.onRemove});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Stack(
+        children: [
+          ClipRRect(
+              borderRadius: BorderRadius.circular(10), child: child),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: GestureDetector(
+              onTap: onRemove,
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(12)),
+                child:
+                    const Icon(Icons.close, color: Colors.white, size: 14),
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/community_post_model.dart';
 import '../services/community_service.dart';
+import '../../chat/screens/chat_list_screen.dart';
 import 'add_community_post_screen.dart';
 import 'community_post_detail_screen.dart';
 
@@ -13,23 +14,29 @@ class CommunityScreen extends StatefulWidget {
   State<CommunityScreen> createState() => _CommunityScreenState();
 }
 
-class _CommunityScreenState extends State<CommunityScreen> {
+class _CommunityScreenState extends State<CommunityScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   final _service = CommunityService();
 
   int _selectedCategory = 0;
   List<CommunityPost> _posts = [];
   bool _loading = true;
 
-  static const _categories = ['전체', '실종', '나눔&입양'];
+  static const _categories = ['전체', '실종', '나눔&입양', '꿀팁/정보', '질문/고민'];
   static const _categoryColors = [
     AppColors.primary,
     AppColors.error,
     AppColors.success,
+    AppColors.catTip,
+    AppColors.catQuestion,
   ];
   static const _categoryIcons = [
     Icons.grid_view_rounded,
     Icons.location_searching_rounded,
     Icons.favorite_border_rounded,
+    Icons.lightbulb_outline_rounded,
+    Icons.chat_bubble_outline_rounded,
   ];
 
   // 탭 → DB category 값 매핑
@@ -37,6 +44,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
     switch (_selectedCategory) {
       case 1: return ['lost'];
       case 2: return ['rehome', 'looking'];
+      case 3: return ['tip'];
+      case 4: return ['question'];
       default: return null; // 전체
     }
   }
@@ -46,6 +55,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
     switch (_selectedCategory) {
       case 1: return 'lost';
       case 2: return 'rehome';
+      case 3: return 'tip';
+      case 4: return 'question';
       default: return 'lost';
     }
   }
@@ -57,7 +68,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
   }
 
   Future<void> _loadPosts() async {
-    setState(() => _loading = true);
+    setState(() => _loading = _posts.isEmpty);
     try {
       final posts = await _service.getPosts(categories: _filterCategories);
       if (mounted) setState(() => _posts = posts);
@@ -87,6 +98,7 @@ class _CommunityScreenState extends State<CommunityScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: PreferredSize(
@@ -106,6 +118,13 @@ class _CommunityScreenState extends State<CommunityScreen> {
                 style: TextStyle(fontWeight: FontWeight.bold)),
             centerTitle: false,
             actions: [
+              IconButton(
+                icon: const Icon(Icons.chat_bubble_outline_rounded),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ChatListScreen()),
+                ),
+              ),
               IconButton(
                 icon: const Icon(Icons.add_circle_outline_rounded),
                 onPressed: _openWrite,
@@ -140,39 +159,42 @@ class _CommunityScreenState extends State<CommunityScreen> {
 
   Widget _buildCategoryBar() {
     return Container(
-      height: 48,
+      height: 58,
       color: AppColors.background,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         itemCount: _categories.length,
         itemBuilder: (context, index) {
           final selected = _selectedCategory == index;
-          return InkWell(
-            borderRadius: BorderRadius.circular(AppRadius.pill),
-            splashColor: AppColors.primaryLight.withValues(alpha: 0.25),
+          final color = _categoryColors[index];
+          return GestureDetector(
             onTap: () => _applyCategory(index),
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
+              duration: const Duration(milliseconds: 220),
               margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 15),
               decoration: BoxDecoration(
-                color: selected ? _categoryColors[index] : AppColors.surface,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: selected ? _categoryColors[index] : AppColors.brownLight,
-                ),
+                color: selected ? color : color.withValues(alpha: 0.09),
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: selected
+                    ? [BoxShadow(
+                        color: color.withValues(alpha: 0.4),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3))]
+                    : [],
               ),
               child: Row(
                 children: [
-                  Icon(_categoryIcons[index], size: 14,
-                      color: selected ? Colors.white : AppColors.textSecondary),
+                  Icon(_categoryIcons[index],
+                      size: 15,
+                      color: selected ? Colors.white : color),
                   const SizedBox(width: 5),
                   Text(_categories[index],
                       style: TextStyle(
                           fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: selected ? Colors.white : AppColors.textSecondary)),
+                          fontWeight: FontWeight.w700,
+                          color: selected ? Colors.white : color)),
                 ],
               ),
             ),
@@ -210,7 +232,13 @@ class _CommunityScreenState extends State<CommunityScreen> {
           child: Column(
             children: [
               Text(
-                _selectedCategory == 1 ? '🔍' : _selectedCategory == 2 ? '🏠' : '📋',
+                switch (_selectedCategory) {
+                  1 => '🔍',
+                  2 => '🏠',
+                  3 => '💡',
+                  4 => '💬',
+                  _ => '📋',
+                },
                 style: const TextStyle(fontSize: 56),
               ),
               const SizedBox(height: 16),
@@ -250,6 +278,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
     switch (_selectedCategory) {
       case 1: return '등록된 실종 글이 없어요';
       case 2: return '나눔&입양 글이 없어요';
+      case 3: return '등록된 꿀팁이 없어요';
+      case 4: return '등록된 질문이 없어요';
       default: return '아직 게시글이 없어요';
     }
   }
@@ -258,6 +288,8 @@ class _CommunityScreenState extends State<CommunityScreen> {
     switch (_selectedCategory) {
       case 1: return '실종된 아이를 제보해주세요';
       case 2: return '나눔 또는 입양 글을 올려주세요';
+      case 3: return '반려동물 꿀팁을 공유해보세요 💡';
+      case 4: return '궁금한 점을 자유롭게 물어보세요';
       default: return '첫 번째 글을 올려보세요';
     }
   }
@@ -270,10 +302,12 @@ class _CommunityCard extends StatelessWidget {
   const _CommunityCard({required this.post});
 
   static const _catColors = {
-    'lost': AppColors.error,
-    'found': AppColors.info,
-    'rehome': AppColors.success,
-    'looking': AppColors.warning,
+    'lost':     AppColors.error,
+    'found':    AppColors.info,
+    'rehome':   AppColors.success,
+    'looking':  AppColors.warning,
+    'tip':      AppColors.catTip,
+    'question': AppColors.catQuestion,
   };
 
   String _timeAgo(DateTime dt) {
