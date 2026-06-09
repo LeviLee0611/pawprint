@@ -50,7 +50,7 @@ class RecordService {
   }
 
   Future<void> addRecord({
-    required String petId,
+    String? petId, // null = 공통 기록
     required DateTime date,
     required String type,
     String? notes,

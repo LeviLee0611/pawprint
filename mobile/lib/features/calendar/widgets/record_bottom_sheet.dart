@@ -4,8 +4,9 @@ import '../../../core/theme/app_theme.dart';
 
 class RecordBottomSheet extends StatelessWidget {
   final DateTime date;
+  final bool isHousehold;
 
-  const RecordBottomSheet({super.key, required this.date});
+  const RecordBottomSheet({super.key, required this.date, this.isHousehold = false});
 
   @override
   Widget build(BuildContext context) {
@@ -58,18 +59,21 @@ class RecordBottomSheet extends StatelessWidget {
               bgColor: AppColors.greenLight,
               onTap: () => Navigator.pop(context, 'health'),
             ),
-            _RecordOption(
-              icon: Icons.monitor_weight_rounded,
-              label: '몸무게 기록',
-              description: '체중 변화를 체크해요',
-              color: AppColors.brown,
-              bgColor: AppColors.brownLight,
-              onTap: () => Navigator.pop(context, 'weight'),
-            ),
+            if (!isHousehold)
+              _RecordOption(
+                icon: Icons.monitor_weight_rounded,
+                label: '몸무게 기록',
+                description: '체중 변화를 체크해요',
+                color: AppColors.brown,
+                bgColor: AppColors.brownLight,
+                onTap: () => Navigator.pop(context, 'weight'),
+              ),
             _RecordOption(
               icon: Icons.favorite_rounded,
-              label: '건강 메모',
-              description: '목욕·케어·특이사항 등을 기록해요',
+              label: isHousehold ? '집 케어 메모' : '건강 메모',
+              description: isHousehold
+                  ? '모래 교체·청소·목욕 등 집 전체 케어를 기록해요'
+                  : '목욕·케어·특이사항 등을 기록해요',
               color: AppColors.peach,
               bgColor: AppColors.peachLight,
               onTap: () => Navigator.pop(context, 'note'),

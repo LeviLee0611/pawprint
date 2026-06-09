@@ -37,6 +37,7 @@ class _CalendarScreenState extends State<CalendarScreen> with AutomaticKeepAlive
   String? _selectedPetId; // null = 전체
   bool _loadingPet = true;
   Map<DateTime, List<Record>> _recordsByDate = {};
+  int _streak = 0;
 
   static const _petColors = [
     AppColors.primary,
@@ -45,9 +46,102 @@ class _CalendarScreenState extends State<CalendarScreen> with AutomaticKeepAlive
     AppColors.peach,
   ];
 
-  Color _petColorOf(String petId) {
-    final index = _pets.indexWhere((p) => p.id == petId);
-    return _petColors[(index < 0 ? 0 : index) % _petColors.length];
+  Widget _buildDayCell(DateTime day, {bool isSelected = false, bool isToday = false}) {
+    final records = _getEventsForDay(day);
+    final seen = <String>{};
+    final unique = <Record>[];
+    for (final r in records) {
+      if (seen.add(r.type)) unique.add(r);
+    }
+    final shown = unique.take(2).toList();
+    final count = records.length;
+
+    final isWeekend = day.weekday == DateTime.saturday || day.weekday == DateTime.sunday;
+
+    Color textColor;
+    BoxDecoration? decoration;
+    if (isSelected) {
+      textColor = Colors.white;
+      decoration = const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle);
+    } else if (isToday) {
+      textColor = AppColors.primary;
+      decoration = BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.primary, width: 1.5),
+      );
+    } else {
+      textColor = isWeekend ? const Color(0xFFE57373) : AppColors.textPrimary;
+    }
+
+    return Stack(
+      children: [
+        Center(
+          child: Container(
+            width: 36,
+            height: 36,
+            decoration: decoration,
+            child: Center(
+              child: Text(
+                '${day.day}',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: textColor,
+                  fontWeight: isSelected || isToday ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (shown.isNotEmpty)
+          Positioned(
+            bottom: 3,
+            left: 0,
+            right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: shown.map((e) => Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 1),
+                child: Text(e.emoji, style: const TextStyle(fontSize: 10)),
+              )).toList(),
+            ),
+          ),
+        if (count > 2)
+          Positioned(
+            top: 3,
+            right: 3,
+            child: Container(
+              width: 14,
+              height: 14,
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.white.withValues(alpha: 0.9) : AppColors.primary,
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: Text(
+                  '$count',
+                  style: TextStyle(
+                    fontSize: 7,
+                    color: isSelected ? AppColors.primary : Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Color _recordBubbleColor(String type) {
+    switch (type) {
+      case 'photo':   return AppColors.primary;
+      case 'health':  return AppColors.green;
+      case 'weight':  return AppColors.brown;
+      case 'note':    return AppColors.peach;
+      case 'bath':    return const Color(0xFF6BB8D4);
+      case 'grooming': return const Color(0xFFB39DDB);
+      default:        return AppColors.brownLight;
+    }
   }
 
   Pet? get _activePet {
@@ -61,6 +155,23 @@ class _CalendarScreenState extends State<CalendarScreen> with AutomaticKeepAlive
     super.initState();
     _loadPets();
     _loadReminders();
+    _calculateStreak();
+  }
+
+  Future<void> _calculateStreak() async {
+    try {
+      final all = await _recordService.getAllRecords();
+      if (!mounted) return;
+      final dates = all.map((r) => DateTime(r.date.year, r.date.month, r.date.day)).toSet();
+      final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+      DateTime check = dates.contains(today) ? today : today.subtract(const Duration(days: 1));
+      int streak = 0;
+      while (dates.contains(check)) {
+        streak++;
+        check = check.subtract(const Duration(days: 1));
+      }
+      if (mounted) setState(() => _streak = streak);
+    } catch (_) {}
   }
 
   Future<void> _loadReminders() async {
@@ -105,6 +216,7 @@ class _CalendarScreenState extends State<CalendarScreen> with AutomaticKeepAlive
         (map[key] ??= []).add(r);
       }
       setState(() => _recordsByDate = map);
+      _calculateStreak();
     } catch (_) {
       if (mounted) setState(() => _recordsByDate = {});
     }
@@ -122,7 +234,6 @@ class _CalendarScreenState extends State<CalendarScreen> with AutomaticKeepAlive
   }
 
   Future<Pet?> _pickPet() async {
-    if (_pets.length == 1) return _pets.first;
     return showDialog<Pet>(
       context: context,
       builder: (ctx) => SimpleDialog(
@@ -135,29 +246,55 @@ class _CalendarScreenState extends State<CalendarScreen> with AutomaticKeepAlive
               fontWeight: FontWeight.bold,
               color: AppColors.textPrimary),
         ),
-        children: _pets
-            .map((pet) => SimpleDialogOption(
-                  onPressed: () => Navigator.pop(ctx, pet),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(children: [
-                      Text(pet.emoji, style: const TextStyle(fontSize: 24)),
-                      const SizedBox(width: 12),
-                      Text(pet.name,
-                          style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary)),
-                    ]),
-                  ),
-                ))
-            .toList(),
+        children: [
+          // 공통 기록 옵션
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, Pet.household),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(children: [
+                const Text('🏠', style: TextStyle(fontSize: 24)),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('공통 기록',
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary)),
+                    const Text('모래 교체, 전체 목욕 등',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textHint)),
+                  ],
+                ),
+              ]),
+            ),
+          ),
+          const Divider(height: 1, indent: 16, endIndent: 16),
+          ..._pets.map((pet) => SimpleDialogOption(
+                onPressed: () => Navigator.pop(ctx, pet),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(children: [
+                    Text(pet.emoji, style: const TextStyle(fontSize: 24)),
+                    const SizedBox(width: 12),
+                    Text(pet.name,
+                        style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary)),
+                  ]),
+                ),
+              )),
+        ],
       ),
     );
   }
 
   Future<void> _showRecordSheet(DateTime date) async {
-    final pet = _selectedPetId != null ? _activePet : await _pickPet();
+    final pet = await _pickPet();
     if (pet == null || !mounted) return;
 
     final selectedType = await showModalBottomSheet<String>(
@@ -167,7 +304,7 @@ class _CalendarScreenState extends State<CalendarScreen> with AutomaticKeepAlive
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => RecordBottomSheet(date: date),
+      builder: (_) => RecordBottomSheet(date: date, isHousehold: pet.isHousehold),
     );
 
     if (selectedType == null || !mounted) return;
@@ -268,6 +405,104 @@ class _CalendarScreenState extends State<CalendarScreen> with AutomaticKeepAlive
       body: _pets.isEmpty ? _buildNoPetState() : _buildCalendar(),
     );
   }
+
+  Future<void> _showDateJumper() async {
+    int selYear = _focusedDay.year;
+    int selMonth = _focusedDay.month;
+    final now = DateTime.now();
+
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.brownLight,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.chevron_left_rounded, color: AppColors.brown),
+                    onPressed: () => setSheet(() => selYear--),
+                  ),
+                  Text('$selYear년',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                  IconButton(
+                    icon: const Icon(Icons.chevron_right_rounded, color: AppColors.brown),
+                    onPressed: () => setSheet(() => selYear++),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              GridView.count(
+                crossAxisCount: 4,
+                shrinkWrap: true,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 2.0,
+                children: List.generate(12, (i) {
+                  final month = i + 1;
+                  final isSelected = month == selMonth && selYear == _focusedDay.year;
+                  final isNow = month == now.month && selYear == now.year;
+                  return GestureDetector(
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      final newDay = DateTime(selYear, month);
+                      setState(() {
+                        _focusedDay = newDay;
+                        selMonth = month;
+                      });
+                      _loadRecords(selYear, month);
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppColors.primary
+                            : isNow
+                                ? AppColors.primaryLight
+                                : AppColors.card,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Center(
+                        child: Text(
+                          '$month월',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: isSelected || isNow ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected
+                                ? Colors.white
+                                : isNow
+                                    ? AppColors.primary
+                                    : AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
 
   Widget _buildNoPetState() {
     return Center(
@@ -383,61 +618,92 @@ class _CalendarScreenState extends State<CalendarScreen> with AutomaticKeepAlive
               _loadRecords(focusedDay.year, focusedDay.month);
             },
             calendarBuilders: CalendarBuilders(
-              markerBuilder: (context, day, events) {
-                if (events.isEmpty) return null;
-                final petIds = events.map((e) => e.petId).toSet().toList();
-                return Positioned(
-                  bottom: 4,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: petIds
-                        .take(3)
-                        .map((petId) => Container(
-                              width: 5,
-                              height: 5,
-                              margin:
-                                  const EdgeInsets.symmetric(horizontal: 1),
-                              decoration: BoxDecoration(
-                                color: _petColorOf(petId),
-                                shape: BoxShape.circle,
+              headerTitleBuilder: (context, day) {
+                final total = _recordsByDate.values.fold(0, (s, l) => s + l.length);
+                final days = _recordsByDate.keys.length;
+                return GestureDetector(
+                  onTap: _showDateJumper,
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              DateFormat('yyyy년 M월', 'ko').format(day),
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                                letterSpacing: -0.5,
                               ),
-                            ))
-                        .toList(),
+                            ),
+                            const SizedBox(width: 3),
+                            const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: AppColors.textSecondary),
+                          ],
+                        ),
+                        if (total > 0) ...[
+                          const SizedBox(height: 2),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '$total개 · $days일 기록',
+                                style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                              ),
+                              if (_streak > 0) ...[
+                                const SizedBox(width: 6),
+                                Text(
+                                  '🔥 $_streak일 연속',
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 );
               },
+              dowBuilder: (context, day) {
+                const labels = ['월', '화', '수', '목', '금', '토', '일'];
+                final label = labels[day.weekday - 1];
+                Color color;
+                if (day.weekday == DateTime.sunday) {
+                  color = const Color(0xFFE57373);
+                } else if (day.weekday == DateTime.saturday) {
+                  color = const Color(0xFF90CAF9);
+                } else {
+                  color = AppColors.textSecondary;
+                }
+                return Center(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: color,
+                    ),
+                  ),
+                );
+              },
+              defaultBuilder: (context, day, _) => _buildDayCell(day),
+              selectedBuilder: (context, day, _) => _buildDayCell(day, isSelected: true),
+              todayBuilder: (context, day, _) => _buildDayCell(day, isToday: true),
             ),
             calendarStyle: const CalendarStyle(
-              selectedDecoration: BoxDecoration(
-                color: AppColors.primary,
-                shape: BoxShape.circle,
-              ),
-              todayDecoration: BoxDecoration(
-                color: AppColors.primaryLight,
-                shape: BoxShape.circle,
-              ),
-              todayTextStyle: TextStyle(
-                  color: AppColors.primaryDark, fontWeight: FontWeight.bold),
-              weekendTextStyle: TextStyle(color: AppColors.peach),
-              markersMaxCount: 3,
+              outsideDaysVisible: false,
+              markersMaxCount: 0,
             ),
             headerStyle: const HeaderStyle(
               formatButtonVisible: false,
               titleCentered: true,
-              titleTextStyle: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
-              ),
-              leftChevronIcon:
-                  Icon(Icons.chevron_left, color: AppColors.brown),
-              rightChevronIcon:
-                  Icon(Icons.chevron_right, color: AppColors.brown),
-            ),
-            daysOfWeekStyle: const DaysOfWeekStyle(
-              weekdayStyle:
-                  TextStyle(color: AppColors.textSecondary, fontSize: 12),
-              weekendStyle: TextStyle(color: AppColors.peach, fontSize: 12),
+              titleTextStyle: TextStyle(fontSize: 0),
+              leftChevronIcon: Icon(Icons.chevron_left_rounded, color: AppColors.brown, size: 20),
+              rightChevronIcon: Icon(Icons.chevron_right_rounded, color: AppColors.brown, size: 20),
+              headerPadding: EdgeInsets.symmetric(vertical: 10),
             ),
           ),
         ),
@@ -537,10 +803,13 @@ class _CalendarScreenState extends State<CalendarScreen> with AutomaticKeepAlive
         ),
         const SizedBox(height: 4),
         ...records.map((r) {
-          final pet = petMap[r.petId] ?? _activePet;
+          final pet = r.petId == null
+              ? Pet.household
+              : (petMap[r.petId] ?? _activePet);
           return _RecordTile(
             record: r,
-            pet: showPetBadge ? petMap[r.petId] : null,
+            accentColor: _recordBubbleColor(r.type),
+            pet: showPetBadge ? (petMap[r.petId] ?? (r.petId == null ? Pet.household : null)) : null,
             onTap: pet == null
                 ? null
                 : () async {
@@ -624,17 +893,17 @@ class _PetFilterChip extends StatelessWidget {
 
 class _RecordTile extends StatelessWidget {
   final Record record;
+  final Color accentColor;
   final Pet? pet;
   final VoidCallback? onDelete;
   final VoidCallback? onTap;
 
-  const _RecordTile({required this.record, this.pet, this.onDelete, this.onTap});
+  const _RecordTile({required this.record, required this.accentColor, this.pet, this.onDelete, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(14),
@@ -646,10 +915,17 @@ class _RecordTile extends StatelessWidget {
           ),
         ],
       ),
-      child: InkWell(
-        onTap: onTap,
+      child: ClipRRect(
         borderRadius: BorderRadius.circular(14),
-        child: Row(
+        child: IntrinsicHeight(
+          child: InkWell(
+            onTap: onTap,
+            child: Row(
+              children: [
+                Container(width: 4, color: accentColor),
+                Expanded(child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(record.emoji, style: const TextStyle(fontSize: 22)),
@@ -732,7 +1008,12 @@ class _RecordTile extends StatelessWidget {
               ),
             ),
         ],
-      ),
+        ),
+        )),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

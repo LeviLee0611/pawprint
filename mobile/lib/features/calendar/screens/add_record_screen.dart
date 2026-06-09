@@ -49,7 +49,18 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
     ('🏥', '병원 방문'),
     ('🎀', '미용'),
   ];
+  static const _householdActivities = [
+    ('🪣', '모래 교체'),
+    ('🚿', '화장실 청소'),
+    ('🛁', '전체 목욕'),
+    ('💊', '전체 구충제'),
+    ('🧹', '집 청소'),
+    ('🛒', '용품 보충'),
+    ('🏥', '병원 방문'),
+    ('📋', '기타'),
+  ];
 
+  bool get _isHousehold => widget.pet.isHousehold;
   bool get _isWeight => widget.type == 'weight';
   bool get _isPhoto => widget.type == 'photo';
   bool get _isHealth => widget.type == 'health';
@@ -72,7 +83,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
   String get _typeEmoji {
     switch (widget.type) {
       case 'weight':
-        return '⚖️';
+        return '📊';
       case 'health':
         return '💉';
       case 'note':
@@ -109,7 +120,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
       setState(() => _saving = true);
       try {
         await _service.addRecord(
-          petId: widget.pet.id,
+          petId: _isHousehold ? null : widget.pet.id,
           date: widget.date,
           type: widget.type,
           notes: _notesController.text.trim().isEmpty
@@ -178,13 +189,13 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
       setState(() => _saving = true);
       try {
         await _service.addRecord(
-          petId: widget.pet.id,
+          petId: _isHousehold ? null : widget.pet.id,
           date: widget.date,
           type: widget.type,
           notes: combinedNote,
         );
-        // 예방접종 알림 설정
-        if (_isHealth && _reminderEnabled && _reminderDate != null) {
+        // 예방접종 알림 설정 (household는 알림 없음)
+        if (_isHealth && !_isHousehold && _reminderEnabled && _reminderDate != null) {
           await _reminderService.addReminder(
             petId: widget.pet.id,
             title: '${widget.pet.name} 예방접종 알림: ${_notesController.text.trim()}',
@@ -305,17 +316,18 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${widget.pet.emoji} ${widget.pet.name}',
+                        _isHousehold ? '🏠 공통 기록' : '${widget.pet.emoji} ${widget.pet.name}',
                         style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: AppColors.textPrimary,
                             fontSize: 15),
                       ),
                       const SizedBox(height: 2),
-                      Text(formatted,
-                          style: const TextStyle(
-                              fontSize: 13,
-                              color: AppColors.textSecondary)),
+                      Text(
+                        _isHousehold ? '모든 아이 / 집 전체 · $formatted' : formatted,
+                        style: const TextStyle(
+                            fontSize: 13,
+                            color: AppColors.textSecondary)),
                     ],
                   ),
                 ],
@@ -536,8 +548,8 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
               ),
             ] else ...[
               // 건강 메모 — 빠른 선택 칩
-              const Text('어떤 케어를 했나요?',
-                  style: TextStyle(
+              Text(_isHousehold ? '어떤 케어를 했나요?' : '어떤 케어를 했나요?',
+                  style: const TextStyle(
                       fontWeight: FontWeight.w600,
                       color: AppColors.textPrimary,
                       fontSize: 15)),
@@ -545,7 +557,7 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: _quickActivities.map((a) {
+                children: (_isHousehold ? _householdActivities : _quickActivities).map((a) {
                   final selected = _selectedActivities.contains(a.$2);
                   return GestureDetector(
                     onTap: () => setState(() {
@@ -595,7 +607,9 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
                 minLines: 3,
                 textAlignVertical: TextAlignVertical.top,
                 decoration: InputDecoration(
-                  hintText: '추가로 남기고 싶은 내용을 적어주세요\n예: 오늘 첫 미용, 밥을 잘 안 먹었어요',
+                  hintText: _isHousehold
+                      ? '추가로 남기고 싶은 내용을 적어주세요\n예: 모래를 새 브랜드로 교체했어요'
+                      : '추가로 남기고 싶은 내용을 적어주세요\n예: 오늘 첫 미용, 밥을 잘 안 먹었어요',
                   hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 13),
                   filled: true,
                   fillColor: AppColors.surface,

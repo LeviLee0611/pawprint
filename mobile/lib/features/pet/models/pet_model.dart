@@ -46,4 +46,13 @@ class Pet {
   );
 
   String get emoji => type == 'dog' ? '🐶' : '🐱';
+
+  bool get isHousehold => id == '__household__';
+
+  static const household = Pet(
+    id: '__household__',
+    ownerId: '',
+    name: '공통 기록',
+    type: 'cat',
+  );
 }

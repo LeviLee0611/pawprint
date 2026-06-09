@@ -1,6 +1,6 @@
 class Record {
   final String id;
-  final String petId;
+  final String? petId; // null = 공통 기록 (특정 펫 없음)
   final String ownerId;
   final DateTime date;
   final String type;
@@ -11,7 +11,7 @@ class Record {
 
   const Record({
     required this.id,
-    required this.petId,
+    this.petId,
     required this.ownerId,
     required this.date,
     required this.type,
@@ -23,7 +23,7 @@ class Record {
 
   factory Record.fromJson(Map<String, dynamic> json) => Record(
         id: json['id'] as String,
-        petId: json['pet_id'] as String,
+        petId: json['pet_id'] as String?,
         ownerId: json['owner_id'] as String,
         date: DateTime.parse(json['date'] as String),
         type: json['type'] as String,
@@ -56,12 +56,29 @@ class Record {
     }
   }
 
+  static const _activityEmojis = {
+    '빗질': '🪮',
+    '목욕': '🛁',
+    '전체 목욕': '🛁',
+    '발톱 정리': '✂️',
+    '귀 청소': '👂',
+    '양치': '🦷',
+    '구충제': '💊',
+    '전체 구충제': '💊',
+    '병원 방문': '🏥',
+    '미용': '🎀',
+    '모래 교체': '🪣',
+    '화장실 청소': '🚿',
+    '집 청소': '🧹',
+    '용품 보충': '🛒',
+  };
+
   String get emoji {
     switch (type) {
       case 'meal':
         return '🍖';
       case 'weight':
-        return '⚖️';
+        return '📊';
       case 'health':
         return '💉';
       case 'grooming':
@@ -70,10 +87,16 @@ class Record {
         return '🎾';
       case 'bath':
         return '🛁';
-      case 'note':
-        return '📝';
       case 'photo':
         return '📷';
+      case 'note':
+        if (notes != null) {
+          final firstLine = notes!.split('\n').first;
+          for (final entry in _activityEmojis.entries) {
+            if (firstLine.contains(entry.key)) return entry.value;
+          }
+        }
+        return '📝';
       default:
         return '📋';
     }

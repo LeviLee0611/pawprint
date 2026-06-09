@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../utils/image_util.dart';
 
-/// 피드 게시글 이미지 — 원본 비율 유지
+/// 피드 게시글 이미지 — 캐싱 + Transform
 class AppPostImage extends StatelessWidget {
   final String url;
   final BoxFit fit;
@@ -20,18 +20,20 @@ class AppPostImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final transformUrl = toTransformUrl(url, width: 900, quality: 85, resize: 'cover');
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: Container(
         width: double.infinity,
         height: fixedHeight,
         color: background,
-        child: Image.network(
-          url,
+        child: CachedNetworkImage(
+          imageUrl: transformUrl,
           width: double.infinity,
           height: fixedHeight,
-          fit: fixedHeight != null ? BoxFit.contain : fit,
-          errorBuilder: (context, error, _) => const SizedBox(),
+          fit: fit,
+          placeholder: (_, _) => Container(color: background),
+          errorWidget: (_, _, _) => const SizedBox(),
         ),
       ),
     );

@@ -216,7 +216,7 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
   Widget build(BuildContext context) {
     super.build(context);
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.white,
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(kToolbarHeight + 49),
         child: Container(
@@ -364,7 +364,7 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
     final posts = _filteredPosts;
     return ListView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.only(top: 8, bottom: 100),
+      padding: const EdgeInsets.only(bottom: 100),
       itemCount: posts.length + (_loadingMore ? 1 : 0),
       itemBuilder: (context, index) {
         if (index == posts.length) {
@@ -378,6 +378,7 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
         final post = posts[index];
         final rawIndex = _posts.indexOf(post);
         return _ThreadPost(
+          key: ValueKey(post.id),
           post: post,
           onLike: () => _toggleLike(rawIndex),
           onSave: () => _toggleSave(rawIndex),
@@ -452,9 +453,9 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
   }
 }
 
-// ── 뉴스형 카드 포스트 ──────────────────────────────────
+// ── 카드 포스트 ──────────────────────────────────
 
-class _ThreadPost extends StatelessWidget {
+class _ThreadPost extends StatefulWidget {
   final Post post;
   final VoidCallback onLike;
   final VoidCallback onSave;
@@ -462,12 +463,47 @@ class _ThreadPost extends StatelessWidget {
   final VoidCallback onProfileTap;
 
   const _ThreadPost({
+    super.key,
     required this.post,
     required this.onLike,
     required this.onSave,
     required this.onTap,
     required this.onProfileTap,
   });
+
+  @override
+  State<_ThreadPost> createState() => _ThreadPostState();
+}
+
+class _ThreadPostState extends State<_ThreadPost> with TickerProviderStateMixin {
+  late final AnimationController _heartCtrl;
+  late final Animation<double> _heartScale;
+  late final Animation<double> _heartOpacity;
+  bool _showHeart = false;
+  int _imageIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _heartCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
+    _heartScale = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.3).chain(CurveTween(curve: Curves.easeOut)), weight: 40),
+      TweenSequenceItem(tween: Tween(begin: 1.3, end: 1.0).chain(CurveTween(curve: Curves.easeIn)), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0).chain(CurveTween(curve: Curves.easeIn)), weight: 20),
+    ]).animate(_heartCtrl);
+    _heartOpacity = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.0), weight: 60),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.0), weight: 20),
+    ]).animate(_heartCtrl);
+  }
+
+  @override
+  void dispose() {
+    _heartCtrl.dispose();
+    super.dispose();
+  }
 
   String _timeAgo(DateTime dt) {
     final diff = DateTime.now().difference(dt);
@@ -478,209 +514,386 @@ class _ThreadPost extends StatelessWidget {
     return DateFormat('M월 d일', 'ko').format(dt);
   }
 
+  void _handleDoubleTap() {
+    widget.onLike();
+    if (!widget.post.isLikedByMe) {
+      setState(() => _showHeart = true);
+      _heartCtrl.forward(from: 0).then((_) {
+        if (mounted) setState(() => _showHeart = false);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final post = widget.post;
     final petLabel = post.petName != null
         ? '${post.petType == 'cat' ? '🐱' : '🐶'} ${post.petName}'
         : null;
     final myId = Supabase.instance.client.auth.currentUser?.id;
     final isMyPost = post.ownerId == myId;
-    final hasThumbnail = post.imageUrls.isNotEmpty;
 
+    if (post.imageUrls.isNotEmpty) {
+      return _buildImageCard(post, petLabel, isMyPost);
+    }
+    return _buildTextPost(post, petLabel, isMyPost);
+  }
+
+  // 이미지 포스트: 이미지가 카드 전체, 정보는 overlay
+  Widget _buildImageCard(Post post, String? petLabel, bool isMyPost) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppColors.cardWarm,
-          borderRadius: BorderRadius.circular(AppRadius.lg),
-          boxShadow: AppShadows.card,
-        ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          splashColor: AppColors.primaryLight.withValues(alpha: 0.25),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ─ 헤더: 아바타 + 이름 + 펫칩 + 시간 + 더보기
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    GestureDetector(
-                      onTap: onProfileTap,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.primaryLight, width: 2),
-                        ),
-                        child: _Avatar(url: post.ownerAvatarUrl, size: 34),
-                      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          onDoubleTap: _handleDoubleTap,
+          child: Stack(
+            children: [
+              // 단일 이미지: 게시글 상세와 동일 방식 (자르기 없음)
+              // 다중 이미지: PageView는 고정 높이 필요하므로 4:5 유지
+              if (post.imageUrls.length == 1)
+                Image.network(
+                  post.imageUrls[0],
+                  fit: BoxFit.contain,
+                  width: double.infinity,
+                  errorBuilder: (_, _, _) => const SizedBox(),
+                )
+              else
+                AspectRatio(
+                  aspectRatio: 4 / 5,
+                  child: PageView.builder(
+                    itemCount: post.imageUrls.length,
+                    onPageChanged: (i) => setState(() => _imageIndex = i),
+                    itemBuilder: (context, i) {
+                      if (i + 1 < post.imageUrls.length) {
+                        precacheImage(NetworkImage(post.imageUrls[i + 1]), context);
+                      }
+                      return Image.network(
+                        post.imageUrls[i],
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
+                        errorBuilder: (_, _, _) => const SizedBox(),
+                      );
+                    },
+                  ),
+                ),
+              // 상단 그라디언트 + 사용자 정보
+              Positioned(
+                top: 0, left: 0, right: 0,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0xCC000000), Colors.transparent],
                     ),
-                    const SizedBox(width: 9),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: onProfileTap,
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Flexible(
-                              child: Text(
+                  ),
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 28),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: widget.onProfileTap,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white54, width: 1.5),
+                          ),
+                          child: _Avatar(url: post.ownerAvatarUrl, size: 30),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: widget.onProfileTap,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
                                 post.ownerName ?? '사용자',
-                                style: AppTextStyles.subtitle.copyWith(
-                                  color: AppColors.textPrimary,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
                                   letterSpacing: -0.2,
                                 ),
                                 overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                            if (petLabel != null) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
+                              if (petLabel != null)
+                                Text(
                                   petLabel,
                                   style: const TextStyle(
-                                    fontSize: 10.5,
-                                    color: AppColors.primary,
-                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white70,
+                                    fontSize: 11,
                                   ),
                                 ),
-                              ),
                             ],
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      _timeAgo(post.createdAt),
-                      style: AppTextStyles.caption.copyWith(color: AppColors.textHint),
-                    ),
-                    GestureDetector(
-                      onTap: () => _showPostOptions(context, post: post, isMyPost: isMyPost),
-                      child: Padding(
-                        padding: const EdgeInsets.only(left: 8),
-                        child: Icon(Icons.more_horiz, size: 18,
-                            color: AppColors.textHint.withValues(alpha: 0.7)),
+                      Text(
+                        _timeAgo(post.createdAt),
+                        style: const TextStyle(color: Colors.white60, fontSize: 11),
                       ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 9),
-
-                // ─ 본문: 텍스트 왼쪽 + 썸네일 오른쪽
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        post.content,
-                        style: AppTextStyles.body.copyWith(letterSpacing: -0.1),
-                        maxLines: hasThumbnail ? 4 : 6,
-                        overflow: TextOverflow.ellipsis,
+                      GestureDetector(
+                        onTap: () => _showPostOptions(context, post: post, isMyPost: isMyPost),
+                        child: const Padding(
+                          padding: EdgeInsets.only(left: 8),
+                          child: Icon(Icons.more_horiz, size: 18, color: Colors.white70),
+                        ),
                       ),
-                    ),
-                    if (hasThumbnail) ...[
-                      const SizedBox(width: 12),
-                      _Thumbnail(urls: post.imageUrls),
                     ],
-                  ],
+                  ),
                 ),
+              ),
+              // 하단 그라디언트 + 본문 + 액션
+              Positioned(
+                bottom: 0, left: 0, right: 0,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [Color(0xDD000000), Colors.transparent],
+                    ),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(12, 36, 12, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (post.content.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Text(
+                            post.content,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              height: 1.4,
+                              letterSpacing: -0.1,
+                            ),
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      Row(
+                        children: [
+                          _ActionBtn(
+                            icon: post.isLikedByMe
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            label: post.likesCount > 0 ? '${post.likesCount}' : '',
+                            color: post.isLikedByMe ? const Color(0xFFFF6B6B) : Colors.white,
+                            onTap: widget.onLike,
+                          ),
+                          const SizedBox(width: 14),
+                          _ActionBtn(
+                            icon: Icons.chat_bubble_outline_rounded,
+                            label: post.commentsCount > 0 ? '${post.commentsCount}' : '',
+                            color: Colors.white,
+                            onTap: widget.onTap,
+                          ),
+                          const Spacer(),
+                          if (post.imageUrls.length > 1)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: List.generate(post.imageUrls.length, (i) => AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                width: _imageIndex == i ? 14 : 5,
+                                height: 5,
+                                margin: const EdgeInsets.symmetric(horizontal: 2),
+                                decoration: BoxDecoration(
+                                  color: _imageIndex == i ? Colors.white : Colors.white38,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                              )),
+                            ),
+                          const Spacer(),
+                          _ActionBtn(
+                            icon: post.isSavedByMe
+                                ? Icons.bookmark_rounded
+                                : Icons.bookmark_border_rounded,
+                            label: '',
+                            color: post.isSavedByMe ? AppColors.primaryLight : Colors.white,
+                            onTap: widget.onSave,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // 더블탭 하트 애니메이션
+              if (_showHeart)
+                Positioned.fill(
+                  child: Center(
+                    child: ScaleTransition(
+                      scale: _heartScale,
+                      child: FadeTransition(
+                        opacity: _heartOpacity,
+                        child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 90),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-                const SizedBox(height: 9),
-                const Divider(height: 1, color: AppColors.divider),
-                const SizedBox(height: 7),
+  static const _textCardGradients = [
+    [Color(0xFFFFB347), Color(0xFFFF6B6B)],
+    [Color(0xFF8EC5FC), Color(0xFFA78BFA)],
+    [Color(0xFF84FAB0), Color(0xFF38BDF8)],
+    [Color(0xFFFDA085), Color(0xFFF6D365)],
+    [Color(0xFFA18CD1), Color(0xFFFBC2EB)],
+    [Color(0xFF96FBC4), Color(0xFFF9F586)],
+    [Color(0xFFFF9A9E), Color(0xFFFFD580)],
+    [Color(0xFF6EE7B7), Color(0xFF60A5FA)],
+  ];
 
-                // ─ 액션 버튼
-                Row(
-                  children: [
-                    _ActionBtn(
-                      icon: post.isLikedByMe
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_border_rounded,
-                      label: post.likesCount > 0 ? '${post.likesCount}' : '',
-                      color: post.isLikedByMe ? AppColors.error : AppColors.textHint,
-                      onTap: onLike,
+  // 텍스트 포스트: 그라디언트 카드
+  Widget _buildTextPost(Post post, String? petLabel, bool isMyPost) {
+    final gradPair = _textCardGradients[post.id.hashCode.abs() % _textCardGradients.length];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: gradPair,
+              ),
+            ),
+            child: Stack(
+              children: [
+                // 상단: 사용자 정보
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: widget.onProfileTap,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white54, width: 1.5),
+                          ),
+                          child: _Avatar(url: post.ownerAvatarUrl, size: 28),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: widget.onProfileTap,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                post.ownerName ?? '사용자',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: -0.2,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (petLabel != null)
+                                Text(
+                                  petLabel,
+                                  style: const TextStyle(color: Colors.white70, fontSize: 10.5),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Text(
+                        _timeAgo(post.createdAt),
+                        style: const TextStyle(color: Colors.white60, fontSize: 11),
+                      ),
+                      GestureDetector(
+                        onTap: () => _showPostOptions(context, post: post, isMyPost: isMyPost),
+                        child: const Padding(
+                          padding: EdgeInsets.only(left: 8),
+                          child: Icon(Icons.more_horiz, size: 18, color: Colors.white70),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // 중앙: 본문 텍스트 (큼직하게)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 64, 16, 56),
+                  child: Text(
+                    post.content,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      height: 1.5,
+                      letterSpacing: -0.3,
+                      shadows: [Shadow(color: Colors.black26, blurRadius: 4)],
                     ),
-                    const SizedBox(width: 16),
-                    _ActionBtn(
-                      icon: Icons.chat_bubble_outline_rounded,
-                      label: post.commentsCount > 0 ? '${post.commentsCount}' : '',
-                      color: AppColors.textHint,
-                      onTap: onTap,
+                    maxLines: 6,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                // 하단: 액션 버튼
+                Positioned(
+                  bottom: 0, left: 0, right: 0,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [Colors.black.withValues(alpha: 0.25), Colors.transparent],
+                      ),
                     ),
-                    const Spacer(),
-                    _ActionBtn(
-                      icon: post.isSavedByMe
-                          ? Icons.bookmark_rounded
-                          : Icons.bookmark_border_rounded,
-                      label: '',
-                      color: post.isSavedByMe ? AppColors.primary : AppColors.textHint,
-                      onTap: onSave,
+                    padding: const EdgeInsets.fromLTRB(10, 12, 10, 12),
+                    child: Row(
+                      children: [
+                        _ActionBtn(
+                          icon: post.isLikedByMe
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          label: post.likesCount > 0 ? '${post.likesCount}' : '',
+                          color: post.isLikedByMe ? const Color(0xFFFF6B6B) : Colors.white,
+                          onTap: widget.onLike,
+                        ),
+                        const SizedBox(width: 14),
+                        _ActionBtn(
+                          icon: Icons.chat_bubble_outline_rounded,
+                          label: post.commentsCount > 0 ? '${post.commentsCount}' : '',
+                          color: Colors.white,
+                          onTap: widget.onTap,
+                        ),
+                        const Spacer(),
+                        _ActionBtn(
+                          icon: post.isSavedByMe
+                              ? Icons.bookmark_rounded
+                              : Icons.bookmark_border_rounded,
+                          label: '',
+                          color: post.isSavedByMe ? Colors.white : Colors.white70,
+                          onTap: widget.onSave,
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ],
             ),
           ),
         ),
       ),
-    );
-  }
-}
-
-// ── 우측 썸네일 위젯 ────────────────────────────────────
-
-class _Thumbnail extends StatelessWidget {
-  final List<String> urls;
-  const _Thumbnail({required this.urls});
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: Image.network(
-            urls.first,
-            width: 88,
-            height: 88,
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => Container(
-              width: 88,
-              height: 88,
-              color: AppColors.primaryLight,
-            ),
-          ),
-        ),
-        if (urls.length > 1)
-          Positioned(
-            right: 5,
-            bottom: 5,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.55),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                '+${urls.length - 1}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ),
-      ],
     );
   }
 }
