@@ -252,7 +252,8 @@ serve(async (req) => {
     // ── 케이스 3: reports INSERT (관리자에게 신고 알림) ──
     if (payload.type === 'INSERT' && payload.table === 'reports') {
       const record = payload.record
-      const adminId = '675dccab-0660-4f6f-852b-5807c4d07f63'
+      const adminId = Deno.env.get('ADMIN_USER_ID')
+      if (!adminId) return ok({ skipped: 'ADMIN_USER_ID not set' })
 
       const { data: adminTokens } = await supabase
         .from('fcm_tokens')

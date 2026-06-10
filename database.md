@@ -64,11 +64,12 @@ auth.users
 | 컬럼 | 타입 | 설명 |
 |---|---|---|
 | id | UUID PK | |
-| pet_id | UUID FK→pets | ON DELETE CASCADE |
+| pet_id | UUID FK→pets (nullable) | ON DELETE CASCADE, null = 공통 기록 |
 | owner_id | UUID FK→profiles | ON DELETE CASCADE |
-| type | TEXT | health / weight / note |
-| value | TEXT | 값 (몸무게 등) |
-| note | TEXT | 메모 |
+| type | TEXT | health / weight / note / meal / grooming / play / bath / photo |
+| value | NUMERIC | 값 (몸무게 등) |
+| notes | TEXT | 메모 |
+| photo_url | TEXT | 사진 URL |
 | date | DATE | 기록 날짜 |
 | created_at | TIMESTAMPTZ | |
 
@@ -186,7 +187,7 @@ auth.users
 |---|---|---|
 | id | UUID PK | |
 | owner_id | UUID FK→profiles | ON DELETE CASCADE |
-| category | TEXT | 'lost' \| 'found' \| 'rehome' \| 'looking' |
+| category | TEXT | 'lost' \| 'found' \| 'rehome' \| 'looking' \| 'tip' \| 'question' |
 | title | TEXT | 제목 |
 | content | TEXT | 내용 |
 | image_urls | TEXT[] DEFAULT '{}' | 이미지 URL 배열 |

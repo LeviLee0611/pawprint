@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:table_calendar/table_calendar.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/pet_model.dart';
 import '../services/pet_service.dart';
@@ -64,20 +65,61 @@ class _EditPetScreenState extends State<EditPetScreen> {
 
   Future<void> _pickBirthday() async {
     final now = DateTime.now();
-    final picked = await showDatePicker(
+    DateTime focused = _birthday ?? now;
+    DateTime? selected = _birthday;
+
+    await showModalBottomSheet(
       context: context,
-      initialDate: _birthday ?? now,
-      firstDate: DateTime(now.year - 20),
-      lastDate: now,
-      initialEntryMode: DatePickerEntryMode.calendarOnly,
-      builder: (context, child) => Theme(
-        data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.light(primary: AppColors.primary),
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModal) => Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40, height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TableCalendar(
+                firstDay: DateTime(now.year - 20),
+                lastDay: now,
+                focusedDay: focused,
+                selectedDayPredicate: (d) => selected != null && isSameDay(d, selected!),
+                onDaySelected: (sel, foc) => setModal(() { selected = sel; focused = foc; }),
+                onPageChanged: (foc) => focused = foc,
+                headerStyle: const HeaderStyle(formatButtonVisible: false, titleCentered: true),
+                calendarStyle: const CalendarStyle(
+                  selectedDecoration: BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                  todayDecoration: BoxDecoration(color: AppColors.primaryLight, shape: BoxShape.circle),
+                  todayTextStyle: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  onPressed: selected == null ? null : () {
+                    Navigator.pop(ctx);
+                    setState(() => _birthday = selected);
+                  },
+                  child: const Text('선택 완료'),
+                ),
+              ),
+            ],
+          ),
         ),
-        child: child!,
       ),
     );
-    if (picked != null) setState(() => _birthday = picked);
   }
 
   Future<void> _submit() async {

@@ -1,5 +1,35 @@
 # 댕냥스토리 개발 기록
 
+## 2026-06-10
+
+### Supabase 서울 리전 이전 (US → ap-northeast-2)
+- 새 프로젝트 ref: `wosuipvdblhpgutkxjkn`
+- `backup_schema.sql` 전체 실행 완료 (테이블 21개, RLS, 트리거, 인덱스)
+- Edge Functions 재배포: `send-notification`, `moderate-images`, `delete-account`, `send-reminders`, `send-birthday`
+- Supabase Secrets 재설정: `FIREBASE_SERVICE_ACCOUNT`, `GOOGLE_VISION_API_KEY`, `CRON_SECRET`
+- pg_cron 활성화 + Cron Jobs 재등록 (`send-reminders`, `send-birthday`)
+- Storage 버킷 생성: `pet-photos`, `post-images`, `record-photos` + RLS 정책
+- Google OAuth Redirect URL 업데이트: `com.pawprint.mobile://login-callback/`
+- `config.dart` 새 프로젝트 URL·anon key로 업데이트
+
+### 버그 수정
+- Kakao 로그인: nonce 추가 (`auth_service.dart`), REST API Key → Native App Key로 변경
+- Storage 403: 버킷 RLS 정책 누락 → 추가
+- records 테이블: `pet_id` nullable, 타입 8종으로 확장, `notes`/`value`/`photo_url` 컬럼 수정
+- community_posts: category check에 `tip`, `question` 추가
+
+### 앱 기능
+- 로그아웃 후 로그인 화면으로 라우트 정리
+- 뒤로가기 2회 종료 (PopScope + SnackBar)
+- 펫 생일 선택 UI: TableCalendar 바텀시트로 변경
+
+### 관리자 UUID
+- 구글: `99244f0e-6035-49df-9189-27caf6df9c89`
+- 카카오: `b8ea8060-898b-4b2a-a98e-897e90be7d1f`
+- backup_schema.sql, RLS 정책, Edge Function Secret 모두 반영 완료
+
+---
+
 ## 2026-06-09 (저녁)
 
 ### 한 일
