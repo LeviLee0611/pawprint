@@ -8,7 +8,9 @@ import '../../notification/screens/notification_screen.dart';
 import '../../notification/services/notification_repository.dart';
 import '../../pet/models/pet_model.dart';
 import '../../profile/services/block_service.dart';
+import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../../core/utils/image_util.dart';
 import '../../../core/widgets/app_image.dart';
 import '../../pet/services/pet_service.dart';
@@ -158,6 +160,8 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
         );
       }
       if (!mounted) return;
+      // API 응답 즉시 첫 10개 이미지 백그라운드 다운로드 시작
+      _prefetchImages(rawPosts);
       setState(() {
         if (reset) {
           _posts = _enrichPosts(rawPosts);
@@ -169,6 +173,17 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
       });
     } catch (e) {
       debugPrint('loadPosts error: $e');
+    }
+  }
+
+  void _prefetchImages(List<Post> posts) {
+    if (!mounted) return;
+    final ctx = context;
+    for (final post in posts.take(10)) {
+      if (post.imageUrls.isEmpty) continue;
+      final url = toTransformUrl(post.imageUrls.first, width: 900, quality: 85);
+      if (url.isEmpty) continue;
+      unawaited(precacheImage(CachedNetworkImageProvider(url), ctx));
     }
   }
 
@@ -559,6 +574,7 @@ class _ThreadPostState extends State<_ThreadPost> with TickerProviderStateMixin 
                   imageUrl: toTransformUrl(post.imageUrls[0], width: 900, quality: 85),
                   fit: BoxFit.contain,
                   width: double.infinity,
+                  placeholder: (_, _) => _ImageShimmer(),
                   errorWidget: (_, _, _) => const SizedBox(),
                 )
               else
@@ -576,6 +592,7 @@ class _ThreadPostState extends State<_ThreadPost> with TickerProviderStateMixin 
                         fit: BoxFit.cover,
                         width: double.infinity,
                         height: double.infinity,
+                        placeholder: (_, _) => _ImageShimmer(),
                         errorWidget: (_, _, _) => const SizedBox(),
                       );
                     },
@@ -1163,6 +1180,17 @@ class _FeedFilterChip extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ImageShimmer extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: const Color(0xFFE8E0D8),
+      highlightColor: const Color(0xFFF5F0EB),
+      child: Container(color: const Color(0xFFE8E0D8)),
     );
   }
 }
