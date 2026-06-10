@@ -3,6 +3,7 @@
 ## 2026-06-10
 
 ### Supabase 서울 리전 이전 (US → ap-northeast-2)
+
 - 새 프로젝트 ref: `wosuipvdblhpgutkxjkn`
 - `backup_schema.sql` 전체 실행 완료 (테이블 21개, RLS, 트리거, 인덱스)
 - Edge Functions 재배포: `send-notification`, `moderate-images`, `delete-account`, `send-reminders`, `send-birthday`
@@ -12,21 +13,190 @@
 - Google OAuth Redirect URL 업데이트: `com.pawprint.mobile://login-callback/`
 - `config.dart` 새 프로젝트 URL·anon key로 업데이트
 
-### 버그 수정
-- Kakao 로그인: nonce 추가 (`auth_service.dart`), REST API Key → Native App Key로 변경
-- Storage 403: 버킷 RLS 정책 누락 → 추가
-- records 테이블: `pet_id` nullable, 타입 8종으로 확장, `notes`/`value`/`photo_url` 컬럼 수정
-- community_posts: category check에 `tip`, `question` 추가
+---
 
-### 앱 기능
-- 로그아웃 후 로그인 화면으로 라우트 정리
-- 뒤로가기 2회 종료 (PopScope + SnackBar)
-- 펫 생일 선택 UI: TableCalendar 바텀시트로 변경
+### 버그 수정 — Kakao OAuth
 
-### 관리자 UUID
-- 구글: `99244f0e-6035-49df-9189-27caf6df9c89`
-- 카카오: `b8ea8060-898b-4b2a-a98e-897e90be7d1f`
-- backup_schema.sql, RLS 정책, Edge Function Secret 모두 반영 완료
+**문제 1: "unacceptable audience"**
+- 원인: Supabase Kakao Provider에 REST API Key가 설정돼 있었으나, 네이티브 SDK가 발급하는 ID Token의 `aud` 클레임은 Native App Key임
+- 해결: Supabase Dashboard → Auth → Providers → Kakao의 "REST API Key" 필드를 Native App Key(`692fad8b1fbfd8d8ec4aa4a3be40fc31`)로 변경
+
+**문제 2: "unacceptable" (nonce 누락)**
+- 원인: Supabase Kakao OIDC는 nonce 필수인데 앱이 nonce 없이 토큰 요청
+- 해결: `auth_service.dart`에 nonce 생성 + SHA-256 해싱 추가
+  ```dart
+  final rawNonce = _generateNonce();
+  final hashedNonce = sha256.convert(utf8.encode(rawNonce)).toString();
+  token = await UserApi.instance.loginWithKakaoTalk(nonce: hashedNonce);
+  await _supabase.auth.signInWithIdToken(
+    provider: OAuthProvider.kakao,
+    idToken: idToken,
+    nonce: rawNonce,  // raw (unhashed) nonce 전달
+  );
+  ```
+- `pubspec.yaml`에 `crypto: ^3.0.3` 추가
+
+**문제 3: "unverified email"**
+- 원인: Supabase가 이메일 인증을 요구하는데 Kakao 계정은 이메일 미인증 상태
+- 해결: Supabase Dashboard → Auth → Settings → "Confirm email" 비활성화
+
+---
+
+### 버그 수정 — Storage 403
+
+- 원인: 서울 신규 프로젝트에 버킷 RLS 정책이 전혀 없었음
+- 해결: 3개 버킷(`pet-photos`, `post-images`, `record-photos`)에 각 4개씩 총 12개 RLS 정책 추가
+  - SELECT: public (누구나 조회)
+  - INSERT/UPDATE/DELETE: authenticated + `auth.uid()::text = (storage.foldername(name))[1]` (본인 폴더만)
+
+---
+
+### 버그 수정 — FCM 알림
+
+**문제 1: DB 트리거 payload 형식 오류**
+- 원인: `row_to_json(NEW)` 그대로 전송했으나 Edge Function이 `{type, table, record}` 구조를 기대
+- 해결: `trigger_send_notification()` 함수 수정
+  ```sql
+  body := jsonb_build_object('type', 'INSERT', 'table', TG_TABLE_NAME, 'record', row_to_json(NEW))
+  ```
+
+**문제 2: FIREBASE_SERVICE_ACCOUNT JSON 형식 오류**
+- 원인: Windows에서 파일 복사 시 `\n`이 리터럴 문자열로 저장되어 private_key 파싱 실패
+- 해결: PowerShell에서 `ConvertFrom-Json | ConvertTo-Json -Compress`로 minify 후 Secret 재설정
+
+**문제 3: FCM 토큰 미등록 (Google 계정)**
+- 원인: 서울 신규 프로젝트에 로그인한 적 없어서 FCM 토큰이 DB에 없었음
+- 해결: Google 계정으로 신규 로그인 → 토큰 자동 등록 → 알림 정상 수신 확인
+
+**문제 4: service_role key 보안**
+- 원인: `trigger_send_notification()` 함수의 Authorization 헤더에 실제 키를 backup_schema.sql에 저장하면 Git 노출 위험
+- 대응: `backup_schema.sql`에는 `SUPABASE_SERVICE_ROLE_KEY` 플레이스홀더로 저장, 실제 키는 SQL Editor에서만 실행 후 저장 금지 (키 로테이션 완료)
+
+---
+
+### 버그 수정 — DB 스키마
+
+**records 테이블**
+- `pet_id`: NOT NULL → nullable (공통 기록 지원)
+- `type`: 3종 → 8종으로 확장 (health, weight, note, meal, grooming, play, bath, photo)
+- 컬럼명: `amount` → `value NUMERIC`, `memo` → `notes TEXT`, `photo_url TEXT` 추가
+- backup_schema.sql + 운영 DB 모두 ALTER TABLE로 반영
+
+**community_posts 테이블**
+- category CHECK 제약: 기존 4종 → 6종으로 확장 (`tip`, `question` 추가)
+- backup_schema.sql + 운영 DB 모두 반영
+
+**`trigger_send_notification()` 함수 누락**
+- 원인: backup_schema.sql 초안에 notifications/reports INSERT 트리거 함수가 빠져 있었음
+- 해결: 함수 + 트리거 2개(trg_send_notification, trg_send_notification_report) 추가 후 운영 DB 실행
+
+**관리자 UUID (신규 프로젝트)**
+- Google: `99244f0e-6035-49df-9189-27caf6df9c89`
+- Kakao: `b8ea8060-898b-4b2a-a98e-897e90be7d1f`
+- backup_schema.sql, RLS 정책, Edge Function Secret(`ADMIN_USER_ID`) 모두 반영 완료
+
+---
+
+### 앱 기능 추가
+
+**로그아웃 → 로그인 화면 자동 이동** (`main.dart`)
+- `AuthGate` StreamBuilder에서 session이 null로 전환될 때 (`_wasAuthenticated` 플래그로 감지)
+- `Navigator.popUntil((r) => r.isFirst)` 호출로 백스택 완전 정리 후 `LoginScreen` 표시
+
+**뒤로가기 2회 종료** (`app.dart`)
+- `PopScope(canPop: false)` 로 Android 뒤로가기 인터셉트
+- 2초 이내 2회 → `SystemNavigator.pop()` 앱 종료
+- 첫 번째 탭 시 "뒤로가기를 한 번 더 누르면 앱이 종료됩니다" SnackBar 표시
+
+**펫 생일 선택 UI 개선** (`add_pet_screen.dart`, `edit_pet_screen.dart`)
+- 기존 `showDatePicker()` → TableCalendar 바텀시트 방식으로 변경
+- 홈(캘린더) 화면과 동일한 날짜 선택 UX로 통일
+
+---
+
+### 인기 게시글 점수 시스템 (Popular Score)
+
+**설계 배경**
+- 기존 인기 탭: 단순 `likes_count DESC` 정렬 → 오래된 글이 계속 상단 점령
+- Reddit 시간 감쇠 + Instagram 인게이지먼트 가중치 방식 결합
+
+**점수 공식**
+```
+score = (좋아요 × 2 + 댓글 × 3 + 저장 × 5) / (게시 후 시간 + 2)^1.5
+```
+- 저장(5) > 댓글(3) > 좋아요(2): 저장이 가장 강한 관심 신호
+- 시간 감쇠: 분모 `(hours + 2)^1.5` — 새 글에 초기 부스트, 오래될수록 자연 하락
+- `+2`: 게시 직후 분모가 0이 되는 것 방지
+
+**DB 변경사항** (운영 DB + backup_schema.sql 모두 반영)
+```sql
+-- 컬럼 추가
+ALTER TABLE posts
+  ADD COLUMN saves_count INT NOT NULL DEFAULT 0 CHECK (saves_count >= 0),
+  ADD COLUMN popular_score NUMERIC(10,4) NOT NULL DEFAULT 0;
+
+-- saves_count 자동 관리 트리거
+CREATE OR REPLACE FUNCTION update_saves_count() ...
+CREATE TRIGGER update_saves_count AFTER INSERT OR DELETE ON saves ...
+
+-- 점수 계산 함수
+CREATE OR REPLACE FUNCTION update_popular_scores() ...
+  UPDATE posts SET popular_score = (likes_count*2 + comments_count*3 + saves_count*5)
+    / POWER(EXTRACT(EPOCH FROM (NOW()-created_at))/3600 + 2, 1.5) WHERE is_hidden = false;
+
+-- pg_cron 매시간 자동 갱신
+SELECT cron.unschedule('update-popular-scores');  -- 재실행 안전
+SELECT cron.schedule('update-popular-scores', '0 * * * *', 'SELECT update_popular_scores()');
+
+-- 초기값 계산 (최초 1회)
+SELECT update_popular_scores();
+```
+
+**Flutter 변경** (`post_service.dart`)
+- `getPopularPosts()` 정렬 기준: `likes_count DESC` → `popular_score DESC`
+
+---
+
+### 전체 이미지 CDN 캐싱 (CachedNetworkImage + Supabase Transform)
+
+**문제**
+- 앱 전체에서 `Image.network()` 직접 사용 → 스크롤 시 매번 재다운로드, 캐싱 없음
+- Supabase Transform API 미활용 → 원본 해상도 이미지를 모바일에서 그대로 로드
+
+**해결**
+- 모든 `Image.network()` → `CachedNetworkImage()` 교체 (디스크 캐시 + 메모리 캐시)
+- `toTransformUrl()` (`image_util.dart`) 적용 — Supabase Storage Transform API로 리사이즈/압축
+- `precacheImage()` 인자도 `NetworkImage` → `CachedNetworkImageProvider`로 교체
+
+**화면별 Transform 크기**
+
+| 위치 | width | quality | 비고 |
+|---|---|---|---|
+| 피드 카드 이미지 | 900 | 85 | 단일/다중 이미지 모두 |
+| 게시글 상세 / 커뮤니티 상세 | 1200 | 90 | 최고 화질 |
+| 프로필 게시글 그리드 | 400 | 75 | 2열 썸네일 |
+| 커뮤니티 목록 썸네일 | 200 | 75 | 76×76 표시 |
+| 저장 목록 썸네일 | 112 | 75 | 56×56 표시 |
+| 캘린더 기록 썸네일 | 144 | 75 | 72×72 표시 |
+| 사진 갤러리 그리드 | 400 | 80 | |
+| 기록 상세 | 900 | 85 | |
+| 펫 아바타 | 200×200 | 85 | |
+| 유저 프로필 펫 칩 아이콘 | 40×40 | 80 | 20×20 표시 |
+| 수정 화면 기존 이미지 썸네일 | 176 | 80 | 88×88 표시 |
+| 사진 뷰어 (전체화면) | 원본 | — | Transform 없음, 풀 화질 |
+
+**수정된 파일 (17개)**
+- `feed_screen.dart`, `post_detail_screen.dart`, `saved_posts_screen.dart`, `edit_post_screen.dart`
+- `community_screen.dart`, `community_post_detail_screen.dart`
+- `my_profile_screen.dart`, `profile_screen.dart`, `user_profile_screen.dart`
+- `pet_screen.dart`
+- `calendar_screen.dart`, `photo_gallery_screen.dart`, `photo_viewer_screen.dart`, `record_detail_screen.dart`
+- `backup_schema.sql`, `database.md`
+- `post_service.dart` (popular_score 정렬)
+
+**결과**
+- `flutter analyze` → No issues
+- Galaxy S25+ 실기기 빌드·설치 완료
 
 ---
 

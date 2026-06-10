@@ -1,6 +1,6 @@
 # 댕냥스토리 데이터베이스 구조
 
-> 마지막 업데이트: 2026-06-08
+> 마지막 업데이트: 2026-06-10
 
 ---
 
@@ -263,3 +263,10 @@ auth.users
 |---|---|
 | `pet-photos` | 펫 프로필 사진 |
 | `post-images` | 피드·커뮤니티 게시글 이미지 |
+| `record-photos` | 캘린더 기록 사진 (photo 타입) |
+
+- 3개 버킷 모두 public(공개 읽기)
+- RLS: SELECT → public / INSERT·UPDATE·DELETE → authenticated + 본인 폴더만 (`auth.uid()::text = foldername[1]`)
+- 이미지 로딩: 전 화면 `CachedNetworkImage` + Supabase Transform API (`/storage/v1/render/image/public/`) 사용
+  - 크기별 Transform: 썸네일 200~400px, 피드 900px, 상세 1200px (quality 75~90)
+  - 사진 풀스크린 뷰어만 Transform 없이 원본 URL 사용
