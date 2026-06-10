@@ -3,7 +3,9 @@ import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/image_util.dart';
 import '../models/community_post_model.dart';
 import '../models/sighting_report_model.dart';
 import '../services/community_service.dart';
@@ -584,8 +586,12 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
 
   Widget _buildImages(CommunityPost post) {
     if (post.imageUrls.length == 1) {
-      return Image.network(post.imageUrls.first,
-          width: double.infinity, fit: BoxFit.contain);
+      return CachedNetworkImage(
+        imageUrl: toTransformUrl(post.imageUrls.first, width: 1200, quality: 90),
+        width: double.infinity,
+        fit: BoxFit.contain,
+        errorWidget: (_, _, _) => const SizedBox(),
+      );
     }
     return Column(
       children: [
@@ -594,10 +600,11 @@ class _CommunityPostDetailScreenState extends State<CommunityPostDetailScreen> {
           child: PageView.builder(
             itemCount: post.imageUrls.length,
             onPageChanged: (i) => setState(() => _imageIndex = i),
-            itemBuilder: (_, i) => Image.network(
-              post.imageUrls[i],
+            itemBuilder: (_, i) => CachedNetworkImage(
+              imageUrl: toTransformUrl(post.imageUrls[i], width: 1200, quality: 90),
               width: double.infinity,
               fit: BoxFit.contain,
+              errorWidget: (_, _, _) => const SizedBox(),
             ),
           ),
         ),

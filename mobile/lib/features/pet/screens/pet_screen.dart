@@ -1,5 +1,7 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/image_util.dart';
 import '../models/pet_model.dart';
 import '../screens/add_pet_screen.dart';
 import '../screens/edit_pet_screen.dart';
@@ -384,12 +386,12 @@ class _PetCard extends StatelessWidget {
     if (pet.profileImageUrl != null) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(18),
-        child: Image.network(
-          pet.profileImageUrl!,
+        child: CachedNetworkImage(
+          imageUrl: toTransformUrl(pet.profileImageUrl, width: 200, height: 200, quality: 85),
           width: size,
           height: size,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stack) => _emojiAvatar(size),
+          errorWidget: (_, _, _) => _emojiAvatar(size),
         ),
       );
     }

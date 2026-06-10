@@ -1,6 +1,8 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
+import '../../../core/utils/image_util.dart';
 import '../models/record_model.dart';
 import '../services/record_service.dart';
 import '../screens/add_record_screen.dart';
@@ -988,12 +990,12 @@ class _RecordTile extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 10),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Image.network(
-                    record.photoUrl!,
+                  child: CachedNetworkImage(
+                    imageUrl: toTransformUrl(record.photoUrl, width: 144, quality: 75),
                     width: 72,
                     height: 72,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const SizedBox(),
+                    errorWidget: (_, _, _) => const SizedBox(),
                   ),
                 ),
               ),

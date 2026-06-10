@@ -1,7 +1,9 @@
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/image_util.dart';
 import '../models/post_model.dart';
 import '../services/post_service.dart';
 
@@ -162,11 +164,12 @@ class _EditPostScreenState extends State<EditPostScreen> {
                     children: [
                       // 기존 유지 이미지
                       ..._keptUrls.asMap().entries.map((e) => _ImageThumb(
-                            child: Image.network(e.value,
+                            child: CachedNetworkImage(
+                                imageUrl: toTransformUrl(e.value, width: 176, quality: 80),
                                 width: 88,
                                 height: 88,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => Container(
+                                errorWidget: (_, _, _) => Container(
                                     width: 88,
                                     height: 88,
                                     color: AppColors.primaryLight)),

@@ -41,6 +41,7 @@
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS pg_cron;
 
 -- =====================================================
 -- TABLES
@@ -89,6 +90,8 @@ CREATE TABLE IF NOT EXISTS public.posts (
   image_urls TEXT[] DEFAULT '{}',
   likes_count INT NOT NULL DEFAULT 0 CHECK (likes_count >= 0),
   comments_count INT NOT NULL DEFAULT 0 CHECK (comments_count >= 0),
+  saves_count INT NOT NULL DEFAULT 0 CHECK (saves_count >= 0),
+  popular_score NUMERIC(10,4) NOT NULL DEFAULT 0,
   is_hidden BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -426,6 +429,42 @@ AS $function$
   end;
 $function$;
 
+CREATE OR REPLACE FUNCTION public.update_saves_count()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+  begin
+    if TG_OP = 'INSERT' then
+      update public.posts set saves_count = saves_count + 1 where id = new.post_id;
+    elsif TG_OP = 'DELETE' then
+      update public.posts set saves_count = greatest(saves_count - 1, 0) where id = old.post_id;
+    end if;
+    return null;
+  end;
+$function$;
+
+-- 인기 점수: (좋아요×2 + 댓글×3 + 저장×5) / (게시 후 시간 + 2)^1.5
+-- pg_cron으로 매시간 자동 갱신
+CREATE OR REPLACE FUNCTION public.update_popular_scores()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+BEGIN
+  UPDATE public.posts
+  SET popular_score = (
+    (likes_count * 2.0 + comments_count * 3.0 + saves_count * 5.0)
+    / POWER(EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600.0 + 2.0, 1.5)
+  )
+  WHERE is_hidden = false;
+  -- 숨김 게시글은 0으로 초기화
+  UPDATE public.posts SET popular_score = 0 WHERE is_hidden = true;
+END;
+$function$;
+
 CREATE OR REPLACE FUNCTION public.auto_hide_on_reports()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -644,6 +683,11 @@ DROP TRIGGER IF EXISTS update_comments_count ON public.comments;
 CREATE TRIGGER update_comments_count
   AFTER INSERT OR DELETE ON public.comments
   FOR EACH ROW EXECUTE FUNCTION public.update_comments_count();
+
+DROP TRIGGER IF EXISTS update_saves_count ON public.saves;
+CREATE TRIGGER update_saves_count
+  AFTER INSERT OR DELETE ON public.saves
+  FOR EACH ROW EXECUTE FUNCTION public.update_saves_count();
 
 DROP TRIGGER IF EXISTS trigger_auto_hide_on_reports ON public.reports;
 CREATE TRIGGER trigger_auto_hide_on_reports
@@ -900,3 +944,18 @@ CREATE POLICY "reporter delete" ON public.sighting_reports AS PERMISSIVE FOR DEL
 -- ※ SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY는 Supabase가 자동 주입
 --
 -- ⚠️ send-reminders, send-birthday는 Cron Job 재등록 필요 (Dashboard → Database → Cron Jobs)
+
+-- =====================================================
+-- CRON JOBS (pg_cron)
+-- =====================================================
+
+-- 인기 점수 매시간 갱신 (재실행 안전: 기존 job 제거 후 등록)
+SELECT cron.unschedule('update-popular-scores');
+SELECT cron.schedule(
+  'update-popular-scores',
+  '0 * * * *',
+  'SELECT public.update_popular_scores()'
+);
+
+-- 기존 데이터 초기 점수 계산 (최초 1회 실행)
+SELECT public.update_popular_scores();

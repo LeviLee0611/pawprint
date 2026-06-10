@@ -89,6 +89,8 @@ auth.users
 | image_urls | TEXT[] | 다중 이미지 URL 배열 |
 | likes_count | INT DEFAULT 0 | 트리거 자동 관리, >= 0 |
 | comments_count | INT DEFAULT 0 | 트리거 자동 관리, >= 0 |
+| saves_count | INT DEFAULT 0 | 트리거 자동 관리, >= 0 |
+| popular_score | NUMERIC(10,4) DEFAULT 0 | pg_cron 매시간 갱신: (좋아요×2 + 댓글×3 + 저장×5) / (경과시간+2)^1.5 |
 | is_hidden | BOOLEAN DEFAULT false | 신고 5회 누적 시 자동 true |
 | created_at | TIMESTAMPTZ | |
 | updated_at | TIMESTAMPTZ | |
@@ -232,7 +234,14 @@ auth.users
 | handle_new_user | auth.users | AFTER INSERT | profiles 자동 생성 |
 | update_likes_count | likes | AFTER INSERT/DELETE | posts.likes_count 증감 (0 이하 방지) |
 | update_comments_count | comments | AFTER INSERT/DELETE | posts.comments_count 증감 (0 이하 방지) |
+| update_saves_count | saves | AFTER INSERT/DELETE | posts.saves_count 증감 (0 이하 방지) |
 | trigger_auto_hide_on_reports | reports | AFTER INSERT | 신고 5회 누적 시 게시글 자동 숨김 |
+
+### pg_cron
+
+| 작업명 | 스케줄 | 동작 |
+|---|---|---|
+| update-popular-scores | 매시 정각 | `update_popular_scores()` 실행 — 전체 posts.popular_score 갱신 |
 
 ---
 

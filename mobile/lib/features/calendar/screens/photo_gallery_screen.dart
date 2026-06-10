@@ -1,6 +1,8 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/image_util.dart';
 import '../models/record_model.dart';
 import '../services/record_service.dart';
 import '../../pet/models/pet_model.dart';
@@ -124,10 +126,10 @@ class _PhotoCell extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.network(
-            record.photoUrl!,
+          CachedNetworkImage(
+            imageUrl: toTransformUrl(record.photoUrl, width: 400, quality: 80),
             fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => Container(
+            errorWidget: (_, _, _) => Container(
               color: AppColors.primaryLight,
               child: const Icon(Icons.broken_image_outlined,
                   color: AppColors.primary),

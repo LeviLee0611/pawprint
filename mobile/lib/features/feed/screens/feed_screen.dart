@@ -8,6 +8,8 @@ import '../../notification/screens/notification_screen.dart';
 import '../../notification/services/notification_repository.dart';
 import '../../pet/models/pet_model.dart';
 import '../../profile/services/block_service.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/utils/image_util.dart';
 import '../../../core/widgets/app_image.dart';
 import '../../pet/services/pet_service.dart';
 import '../models/post_model.dart';
@@ -553,11 +555,11 @@ class _ThreadPostState extends State<_ThreadPost> with TickerProviderStateMixin 
               // 단일 이미지: 게시글 상세와 동일 방식 (자르기 없음)
               // 다중 이미지: PageView는 고정 높이 필요하므로 4:5 유지
               if (post.imageUrls.length == 1)
-                Image.network(
-                  post.imageUrls[0],
+                CachedNetworkImage(
+                  imageUrl: toTransformUrl(post.imageUrls[0], width: 900, quality: 85),
                   fit: BoxFit.contain,
                   width: double.infinity,
-                  errorBuilder: (_, _, _) => const SizedBox(),
+                  errorWidget: (_, _, _) => const SizedBox(),
                 )
               else
                 AspectRatio(
@@ -567,14 +569,14 @@ class _ThreadPostState extends State<_ThreadPost> with TickerProviderStateMixin 
                     onPageChanged: (i) => setState(() => _imageIndex = i),
                     itemBuilder: (context, i) {
                       if (i + 1 < post.imageUrls.length) {
-                        precacheImage(NetworkImage(post.imageUrls[i + 1]), context);
+                        precacheImage(CachedNetworkImageProvider(toTransformUrl(post.imageUrls[i + 1], width: 900, quality: 85)), context);
                       }
-                      return Image.network(
-                        post.imageUrls[i],
+                      return CachedNetworkImage(
+                        imageUrl: toTransformUrl(post.imageUrls[i], width: 900, quality: 85),
                         fit: BoxFit.cover,
                         width: double.infinity,
                         height: double.infinity,
-                        errorBuilder: (_, _, _) => const SizedBox(),
+                        errorWidget: (_, _, _) => const SizedBox(),
                       );
                     },
                   ),

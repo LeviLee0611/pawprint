@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/image_util.dart';
 import '../models/post_model.dart';
 import '../services/post_service.dart';
 import '../widgets/report_bottom_sheet.dart';
@@ -916,11 +918,11 @@ class _DetailImageCarouselState extends State<_DetailImageCarousel> {
     if (widget.urls.length == 1) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: Image.network(
-          widget.urls.first,
+        child: CachedNetworkImage(
+          imageUrl: toTransformUrl(widget.urls.first, width: 1200, quality: 90),
           width: double.infinity,
           fit: BoxFit.contain,
-          errorBuilder: (_, _, _) => const SizedBox(),
+          errorWidget: (_, _, _) => const SizedBox(),
         ),
       );
     }
@@ -934,11 +936,11 @@ class _DetailImageCarouselState extends State<_DetailImageCarousel> {
             onPageChanged: (i) => setState(() => _current = i),
             itemBuilder: (ctx, i) => ClipRRect(
               borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                widget.urls[i],
+              child: CachedNetworkImage(
+                imageUrl: toTransformUrl(widget.urls[i], width: 1200, quality: 90),
                 width: double.infinity,
                 fit: BoxFit.contain,
-                errorBuilder: (_, _, _) => const SizedBox(),
+                errorWidget: (_, _, _) => const SizedBox(),
               ),
             ),
           ),

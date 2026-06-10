@@ -1,6 +1,8 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/image_util.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../../feed/models/post_model.dart';
 import '../../feed/screens/post_detail_screen.dart';
@@ -186,10 +188,10 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
             ? Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.network(
-                    post.imageUrl!,
+                  CachedNetworkImage(
+                    imageUrl: toTransformUrl(post.imageUrl, width: 400, quality: 75),
                     fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => _buildTextTile(post),
+                    errorWidget: (_, _, _) => _buildTextTile(post),
                   ),
                   // 하단 그라데이션 + 텍스트 오버레이
                   if (post.content.isNotEmpty)

@@ -84,7 +84,7 @@ class PostService {
     }
 
     final data = await query
-        .order('likes_count', ascending: false)
+        .order('popular_score', ascending: false)
         .order('created_at', ascending: false)
         .range(offset, offset + _pageSize - 1);
 

@@ -1,6 +1,8 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/image_util.dart';
 import '../models/community_post_model.dart';
 import '../services/community_service.dart';
 import '../../chat/screens/chat_list_screen.dart';
@@ -401,12 +403,12 @@ class _CommunityCard extends StatelessWidget {
                   const SizedBox(width: 12),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
-                    child: Image.network(
-                      post.imageUrls.first,
+                    child: CachedNetworkImage(
+                      imageUrl: toTransformUrl(post.imageUrls.first, width: 200, quality: 75),
                       width: 76,
                       height: 76,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const SizedBox(),
+                      errorWidget: (_, _, _) => const SizedBox(),
                     ),
                   ),
                 ],

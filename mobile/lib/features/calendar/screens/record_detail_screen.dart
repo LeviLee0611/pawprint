@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../../core/utils/image_util.dart';
 import 'package:intl/intl.dart';
 import '../models/record_model.dart';
 import '../services/record_service.dart';
@@ -185,11 +187,12 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                           height: 240,
                           fit: BoxFit.cover)
                       : widget.record.photoUrl != null
-                          ? Image.network(
-                              widget.record.photoUrl!,
+                          ? CachedNetworkImage(
+                              imageUrl: toTransformUrl(widget.record.photoUrl, width: 900, quality: 85),
                               width: double.infinity,
                               height: 240,
                               fit: BoxFit.cover,
+                              errorWidget: (_, _, _) => const SizedBox(),
                             )
                           : Container(
                               width: double.infinity,

@@ -8,6 +8,8 @@ import '../../feed/services/follow_service.dart';
 import '../../feed/services/post_service.dart';
 import '../../pet/models/pet_model.dart';
 import '../../pet/services/pet_service.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../../core/utils/image_util.dart';
 import '../../../core/widgets/app_image.dart';
 import '../services/block_service.dart';
 import '../widgets/profile_banner.dart';
@@ -341,12 +343,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         children: [
                           if (pet.profileImageUrl != null)
                             ClipOval(
-                              child: Image.network(
-                                pet.profileImageUrl!,
+                              child: CachedNetworkImage(
+                                imageUrl: toTransformUrl(pet.profileImageUrl, width: 40, height: 40, quality: 80),
                                 width: 20,
                                 height: 20,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => Text(pet.emoji,
+                                errorWidget: (_, _, _) => Text(pet.emoji,
                                     style: const TextStyle(fontSize: 14)),
                               ),
                             )

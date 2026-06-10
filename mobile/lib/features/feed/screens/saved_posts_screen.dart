@@ -1,5 +1,7 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/image_util.dart';
 import '../../../core/widgets/skeleton.dart';
 import '../models/post_model.dart';
 import '../services/post_service.dart';
@@ -166,11 +168,12 @@ class _SavedPostTile extends StatelessWidget {
               const SizedBox(width: 12),
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  post.imageUrl!,
+                child: CachedNetworkImage(
+                  imageUrl: toTransformUrl(post.imageUrl, width: 112, quality: 75),
                   width: 56,
                   height: 56,
                   fit: BoxFit.cover,
+                  errorWidget: (_, _, _) => const SizedBox(),
                 ),
               ),
             ],
