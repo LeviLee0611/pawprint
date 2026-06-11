@@ -19,6 +19,7 @@ import '../services/post_service.dart';
 import '../../../features/profile/screens/user_profile_screen.dart';
 import '../services/follow_service.dart';
 import 'add_post_screen.dart';
+import 'edit_post_screen.dart';
 import 'post_detail_screen.dart';
 import '../widgets/report_bottom_sheet.dart';
 
@@ -418,6 +419,36 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
               ),
             ),
           ),
+          onEdit: (updated) {
+            setState(() {
+              final idx = _posts.indexWhere((p) => p.id == updated.id);
+              if (idx == -1) return;
+              _posts[idx] = updated.copyWith(
+                ownerName: post.ownerName,
+                ownerAvatarUrl: post.ownerAvatarUrl,
+                petName: post.petName,
+                petType: post.petType,
+                likesCount: post.likesCount,
+                commentsCount: post.commentsCount,
+                isLikedByMe: post.isLikedByMe,
+                isSavedByMe: post.isSavedByMe,
+              );
+            });
+          },
+          onDelete: () async {
+            final postService = PostService();
+            final messenger = ScaffoldMessenger.of(context);
+            try {
+              await postService.deletePost(post.id, imageUrls: post.imageUrls);
+              if (!mounted) return;
+              setState(() => _posts.removeWhere((p) => p.id == post.id));
+            } catch (e) {
+              if (!mounted) return;
+              messenger.showSnackBar(
+                SnackBar(content: Text('삭제 실패: $e'), backgroundColor: AppColors.error),
+              );
+            }
+          },
         );
       },
     );
@@ -478,6 +509,8 @@ class _ThreadPost extends StatefulWidget {
   final VoidCallback onSave;
   final VoidCallback onTap;
   final VoidCallback onProfileTap;
+  final ValueChanged<Post>? onEdit;
+  final VoidCallback? onDelete;
 
   const _ThreadPost({
     super.key,
@@ -486,6 +519,8 @@ class _ThreadPost extends StatefulWidget {
     required this.onSave,
     required this.onTap,
     required this.onProfileTap,
+    this.onEdit,
+    this.onDelete,
   });
 
   @override
@@ -656,7 +691,7 @@ class _ThreadPostState extends State<_ThreadPost> with TickerProviderStateMixin 
                         style: const TextStyle(color: Colors.white60, fontSize: 11),
                       ),
                       GestureDetector(
-                        onTap: () => _showPostOptions(context, post: post, isMyPost: isMyPost),
+                        onTap: () => _showPostOptions(context, post: post, isMyPost: isMyPost, onEdit: widget.onEdit, onDelete: widget.onDelete),
                         child: const Padding(
                           padding: EdgeInsets.only(left: 8),
                           child: Icon(Icons.more_horiz, size: 18, color: Colors.white70),
@@ -840,7 +875,7 @@ class _ThreadPostState extends State<_ThreadPost> with TickerProviderStateMixin 
                         style: const TextStyle(color: Colors.white60, fontSize: 11),
                       ),
                       GestureDetector(
-                        onTap: () => _showPostOptions(context, post: post, isMyPost: isMyPost),
+                        onTap: () => _showPostOptions(context, post: post, isMyPost: isMyPost, onEdit: widget.onEdit, onDelete: widget.onDelete),
                         child: const Padding(
                           padding: EdgeInsets.only(left: 8),
                           child: Icon(Icons.more_horiz, size: 18, color: Colors.white70),
@@ -921,11 +956,13 @@ void _showPostOptions(
   BuildContext context, {
   required Post post,
   required bool isMyPost,
+  ValueChanged<Post>? onEdit,
+  VoidCallback? onDelete,
 }) {
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
-    builder: (_) => SafeArea(
+    builder: (sheetCtx) => SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
         child: Column(
@@ -945,7 +982,7 @@ void _showPostOptions(
                     title: const Text('공유하기',
                         style: TextStyle(fontWeight: FontWeight.w600)),
                     onTap: () {
-                      Navigator.pop(context);
+                      Navigator.pop(sheetCtx);
                       final ownerName = post.ownerName ?? '누군가';
                       final content = post.content.length > 80
                           ? '${post.content.substring(0, 80)}…'
@@ -955,7 +992,59 @@ void _showPostOptions(
                       );
                     },
                   ),
-                  if (!isMyPost) ...[
+                  if (isMyPost) ...[
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.edit_outlined,
+                          color: AppColors.primary),
+                      title: const Text('수정하기',
+                          style: TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w600)),
+                      onTap: () async {
+                        Navigator.pop(sheetCtx);
+                        if (onEdit == null) return;
+                        final updated = await Navigator.push<Post>(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => EditPostScreen(post: post)),
+                        );
+                        if (updated != null) onEdit(updated);
+                      },
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.delete_outline,
+                          color: AppColors.error),
+                      title: const Text('삭제하기',
+                          style: TextStyle(
+                              color: AppColors.error,
+                              fontWeight: FontWeight.w600)),
+                      onTap: () {
+                        Navigator.pop(sheetCtx);
+                        showDialog<bool>(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            title: const Text('게시글 삭제'),
+                            content: const Text('이 게시글을 삭제할까요?'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('취소'),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text('삭제',
+                                    style: TextStyle(color: AppColors.error)),
+                              ),
+                            ],
+                          ),
+                        ).then((confirmed) {
+                          if (confirmed == true) onDelete?.call();
+                        });
+                      },
+                    ),
+                  ] else ...[
                     const Divider(height: 1),
                     ListTile(
                       leading: const Icon(Icons.flag_outlined,
@@ -965,7 +1054,7 @@ void _showPostOptions(
                               color: AppColors.error,
                               fontWeight: FontWeight.w600)),
                       onTap: () {
-                        Navigator.pop(context);
+                        Navigator.pop(sheetCtx);
                         showReportSheet(context,
                             targetType: 'post', targetId: post.id);
                       },
@@ -981,7 +1070,7 @@ void _showPostOptions(
                 borderRadius: BorderRadius.circular(16),
               ),
               child: ListTile(
-                onTap: () => Navigator.pop(context),
+                onTap: () => Navigator.pop(sheetCtx),
                 title: const Text('취소',
                     textAlign: TextAlign.center,
                     style: TextStyle(

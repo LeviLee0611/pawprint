@@ -219,6 +219,9 @@ class PostService {
     List<File> newImageFiles = const [],
     List<String> removedImageUrls = const [],
   }) async {
+    final filtered = ContentFilter.check(content);
+    if (filtered != null) throw Exception(filtered);
+
     final userId = _supabase.auth.currentUser!.id;
     final uploadedUrls = <String>[];
     final uploadedPaths = <String>[];
@@ -405,6 +408,7 @@ class PostService {
   }
 
   Future<void> deletePost(String postId, {List<String>? imageUrls}) async {
+    await _supabase.from('posts').delete().eq('id', postId);
     if (imageUrls != null && imageUrls.isNotEmpty) {
       final paths = imageUrls
           .map((url) => StoragePathUtil.fromUrl(url, 'post-images'))
@@ -416,7 +420,6 @@ class PostService {
         } catch (_) {}
       }
     }
-    await _supabase.from('posts').delete().eq('id', postId);
   }
 
   /// Returns true if newly liked, false if unliked.
