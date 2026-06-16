@@ -1002,11 +1002,40 @@ class _RecordTile extends StatelessWidget {
             ),
           if (onDelete != null)
             GestureDetector(
-              onTap: onDelete,
+              onTap: () async {
+                final ok = await showDialog<bool>(
+                  context: context,
+                  builder: (_) => AlertDialog(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                    contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset('assets/images/포포얼굴사진.png', height: 80),
+                        const SizedBox(height: 12),
+                        const Text('기록을 삭제할거냥?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                        const SizedBox(height: 8),
+                        const Text('이 기록을 삭제할게요', textAlign: TextAlign.center,
+                            style: TextStyle(color: AppColors.textSecondary)),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('취소', style: TextStyle(color: AppColors.textSecondary)),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('삭제', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                );
+                if (ok == true) onDelete!();
+              },
               child: const Padding(
                 padding: EdgeInsets.only(left: 8),
-                child:
-                    Icon(Icons.close, size: 16, color: AppColors.textHint),
+                child: Icon(Icons.close, size: 16, color: AppColors.textHint),
               ),
             ),
         ],

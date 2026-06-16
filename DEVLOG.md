@@ -1,5 +1,133 @@
 # 댕냥스토리 개발 기록
 
+## 2026-06-15
+
+### 피드 이미지 비율 고정 (3:4)
+
+**문제**
+- 피드 단일/다중 이미지가 사진마다 비율이 달라 레이아웃 불규칙
+- 다중 이미지(PageView) 스크롤 시 메인 탭 PageView와 제스처 충돌 발생
+
+**해결**
+- 모든 피드 이미지: `AspectRatio(3/4)` + `BoxFit.cover` 고정 프레임
+- Supabase Transform: `width=900&height=1200&resize=cover` — 정확한 3:4 비율로 서버 크롭
+- 게시글 상세 화면도 동일 적용 (`width=1200&height=1600`)
+- 메인 `PageView`에 `NeverScrollableScrollPhysics` → 탭 스와이프 비활성화
+- 내부 이미지 `PageView`에 `PageScrollPhysics(parent: ClampingScrollPhysics())` → 이미지 스와이프 정상 동작
+
+---
+
+### 기록 사진 버킷 404 수정
+
+- `record_service.dart` 버킷명 `record-photos` → `post-images` 변경 (기존 버킷 RLS 미설정으로 404 발생)
+- **참고**: `record-photos` 버킷은 여전히 존재하나 RLS 정책 미비 상태. 추후 정리 예정
+
+---
+
+### 예방접종 알림 시스템 전면 개선
+
+**문제**
+- 알림 관리 화면에 알림이 안 나타남 (`sent = NULL` 처리 누락)
+- 알림 시간 설정 불가 (`remind_at` 컬럼이 `date` 타입이라 시간 저장 안 됨)
+- 홈/상세 화면에서 알림 수정 불가
+
+**DB 마이그레이션** (직접 실행)
+```sql
+ALTER TABLE reminders ALTER COLUMN remind_at TYPE timestamptz USING remind_at::date::timestamptz;
+```
+
+**Flutter 수정**
+- `ReminderService.getMyReminders()`: `.or('sent.eq.false,sent.is.null')` — NULL sent 처리
+- `remind_at` 저장: `toUtc().toIso8601String()` — timezone 포함 UTC 저장
+- `remind_at` 읽기: `.toLocal()` — 기기 현지 시각으로 표시
+- `add_record_screen.dart`: 알림 추가 → `AddRecord` 저장 후 `recordId` 연결
+- `record_detail_screen.dart`: 상세 화면에서 알림 추가/수정/삭제 가능
+- `reminder_screen.dart`: 알림 관리에서 수정/삭제 가능
+
+**타임존 설계**
+- 미국 등 해외에서 설정 시: 기기 로컬 타임 → UTC 변환 저장 → 정확한 현지 시각에 알림
+
+---
+
+### 알림 UI 리디자인
+
+**이전**: 토글 카드 + pill 버튼 (복잡, overflow 버그)
+**이후**: 심플한 한 줄 row → 탭하면 바텀시트
+
+**바텀시트 구성**
+- 날짜/시간 선택 row (탭 → OS 피커)
+- "저장하기" 버튼
+- "알림 삭제" 버튼 (수정 시)
+
+**적용 범위**
+- 기록 추가 화면: `ReminderSection` 위젯 완전 재설계
+- 기록 상세 화면: 등록된 알림 리스트 제거 → 각 알림 row 탭으로 수정
+- 알림 관리 화면: 수정 다이얼로그 → 바텀시트
+
+---
+
+### 알림-기록 연결 구조 추가
+
+**문제**: 같은 펫의 다른 예방접종 알림이 한 기록 상세에 모두 표시됨
+
+**해결**
+- `reminders` 테이블에 `record_id uuid references records(id)` 컬럼 추가
+  - 마이그레이션: `supabase/migrations/reminders_record_link.sql`
+  - **Supabase SQL Editor에서 실행 필요**
+- `addReminder()`: `recordId` 파라미터 추가
+- `addRecord()`: 반환값 `Future<String>` (새 record ID 반환)
+- 상세 화면 알림 로딩: `record_id` 기준 필터 (없으면 `pet_id` fallback)
+
+---
+
+### Edge Function 알림 발송 쿼리 수정
+
+**이전**: `remind_at = '2026-06-15'` (date 타입 비교, KST 기준)
+**이후**: `remind_at <= NOW() AND remind_at >= NOW() - 25h AND sent = false`
+- `timestamptz` 저장 방식과 일치
+- 크론이 실패해도 25시간 이내 재처리 가능
+- `send-reminders` Edge Function 재배포 필요
+
+---
+
+### 삭제 확인 다이얼로그 & 기타 UX
+
+- 기록 삭제: `포포얼굴사진.png` + "기록을 삭제할거냥?"
+- 알림 삭제: `포포얼굴사진.png` + "알림을 삭제할거냥?" (문구 수정)
+- 프로필 게시글 그리드: 3열 → 2열, 정사각형 썸네일
+- 캘린더 "집 케어 메모" → "홈 케어 기록"
+
+---
+
+### 알림 크론 & 시간 피커 정밀화
+
+**문제**: 크론이 매시간 정각 실행 → 12:05 설정하면 13:00에 발송 (최대 1시간 오차)
+
+**해결 설계**: 시간을 30분 단위로만 설정 가능하게 제한 + 크론 30분마다 실행
+
+**Flutter — 커스텀 시간 피커 (`_showHalfHourTimePicker`)**
+- OS 기본 `showTimePicker` 제거
+- 커스텀 바텀시트: `−/+` 버튼으로 시(hour) 조절 + `:00` / `:30` 버튼 선택
+- 분(minute)은 0 또는 30만 선택 가능
+
+**Supabase 크론**
+- 기존 `send-reminders-daily` (`0 15 * * *`, 하루 1회) 제거
+- 신규 `send-reminders` (`0,30 * * * *`, 30분마다) 등록
+- 최대 알림 오차: 30분 → 설정 시각에 정확히 맞음
+
+**완료 사항**
+- `reminders_record_link.sql` Supabase 실행 완료
+- `send-reminders` Edge Function 재배포 완료
+- 크론 `0,30 * * * *` 등록 완료
+
+---
+
+### TODO (다음 세션)
+
+- [ ] **`record-photos` 버킷 RLS 정책 점검** — 원래 버킷으로 복원 여부 결정
+
+---
+
 ## 2026-06-10
 
 ### Supabase 서울 리전 이전 (US → ap-northeast-2)

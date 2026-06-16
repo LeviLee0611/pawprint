@@ -6,7 +6,7 @@ import '../models/record_model.dart';
 class RecordService {
   final _supabase = Supabase.instance.client;
 
-  static const _bucket = 'record-photos';
+  static const _bucket = 'post-images';
   static const _allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
   static const _maxFileSizeBytes = 10 * 1024 * 1024; // 10MB
 
@@ -49,7 +49,7 @@ class RecordService {
     return (data as List).map((e) => Record.fromJson(e)).toList();
   }
 
-  Future<void> addRecord({
+  Future<String> addRecord({
     String? petId, // null = 공통 기록
     required DateTime date,
     required String type,
@@ -79,7 +79,7 @@ class RecordService {
     }
 
     try {
-      await _supabase.from('records').insert({
+      final res = await _supabase.from('records').insert({
         'pet_id': petId,
         'owner_id': userId,
         'date': dateStr,
@@ -87,7 +87,8 @@ class RecordService {
         'notes': notes,
         'value': value,
         'photo_url': photoUrl,
-      });
+      }).select('id').single();
+      return res['id'] as String;
     } catch (e) {
       if (storagePath != null) {
         try {

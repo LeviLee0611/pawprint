@@ -6,8 +6,10 @@ import '../../../core/utils/image_util.dart';
 import 'package:intl/intl.dart';
 import '../models/record_model.dart';
 import '../services/record_service.dart';
+import '../services/reminder_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../pet/models/pet_model.dart';
+import 'add_record_screen.dart' show showReminderBottomSheet;
 
 class RecordDetailScreen extends StatefulWidget {
   final Record record;
@@ -25,6 +27,7 @@ class RecordDetailScreen extends StatefulWidget {
 
 class _RecordDetailScreenState extends State<RecordDetailScreen> {
   final _service = RecordService();
+  final _reminderService = ReminderService();
   late final TextEditingController _notesController;
   late final TextEditingController _weightController;
 
@@ -32,12 +35,16 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   bool _saving = false;
   File? _newPhotoFile;
 
+  List<Map<String, dynamic>> _existingReminders = [];
+
   bool get _isWeight => widget.record.type == 'weight';
   bool get _isPhoto => widget.record.type == 'photo';
+  bool get _isHealth => widget.record.type == 'health';
 
   @override
   void initState() {
     super.initState();
+    if (_isHealth) _loadReminders();
     _notesController =
         TextEditingController(text: widget.record.notes ?? '');
     _weightController = TextEditingController(
@@ -49,6 +56,18 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     _notesController.dispose();
     _weightController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadReminders() async {
+    try {
+      final all = await _reminderService.getMyReminders();
+      if (mounted) setState(() => _existingReminders = all.where((r) {
+        // record_id가 있으면 정확히 이 기록의 알림만, 없으면 같은 펫 알림 fallback
+        final rid = r['record_id'] as String?;
+        if (rid != null) return rid == widget.record.id;
+        return r['pet_id'] == widget.pet.id;
+      }).toList());
+    } catch (_) {}
   }
 
   Future<void> _pickPhoto() async {
@@ -246,6 +265,112 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                       ? _infoBox(widget.record.notes!)
                       : _infoBox('메모 없음',
                           hint: true),
+            ],
+
+            // 예방접종 알림 (health 타입만)
+            if (_isHealth) ...[
+              const SizedBox(height: 24),
+              _sectionLabel('알림'),
+              const SizedBox(height: 10),
+              ..._existingReminders.map((r) {
+                final remindAt = DateTime.parse(r['remind_at'] as String).toLocal();
+                final fmt = DateFormat('yyyy년 M월 d일', 'ko');
+                final dDay = remindAt.difference(DateTime.now()).inDays;
+                final isPast = dDay < 0;
+                final timeStr = '${remindAt.hour.toString().padLeft(2, '0')}:${remindAt.minute.toString().padLeft(2, '0')}';
+                return GestureDetector(
+                  onTap: () => showReminderBottomSheet(
+                    context,
+                    title: r['title'] as String? ?? '알림',
+                    initialDate: remindAt,
+                    initialTime: TimeOfDay(hour: remindAt.hour, minute: remindAt.minute),
+                    onSave: (d, t) async {
+                      final fullDt = DateTime(d.year, d.month, d.day, t.hour, t.minute);
+                      await _reminderService.updateReminder(r['id'] as String, remindAt: fullDt);
+                      _loadReminders();
+                    },
+                    onDelete: () async {
+                      await _reminderService.deleteReminder(r['id'] as String);
+                      _loadReminders();
+                    },
+                  ),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.notifications_outlined, size: 16,
+                            color: isPast ? AppColors.textHint : AppColors.primary),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            '${fmt.format(remindAt)}  $timeStr',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: isPast ? AppColors.textHint : AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        if (!isPast) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: dDay <= 7 ? AppColors.peachLight : AppColors.primaryLight.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              dDay == 0 ? 'D-Day' : 'D-$dDay',
+                              style: TextStyle(
+                                fontSize: 11, fontWeight: FontWeight.bold,
+                                color: dDay <= 7 ? AppColors.peach : AppColors.primary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        const Icon(Icons.chevron_right_rounded, size: 16, color: AppColors.textHint),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+              GestureDetector(
+                onTap: () => showReminderBottomSheet(
+                  context,
+                  title: '알림 추가',
+                  initialDate: widget.record.date.add(const Duration(days: 365)),
+                  initialTime: const TimeOfDay(hour: 9, minute: 0),
+                  onSave: (d, t) async {
+                    final fullDt = DateTime(d.year, d.month, d.day, t.hour, t.minute);
+                    await _reminderService.addReminder(
+                      petId: widget.pet.id,
+                      title: '${widget.pet.name} 예방접종 알림',
+                      remindAt: fullDt,
+                      recordId: widget.record.id,
+                    );
+                    _loadReminders();
+                  },
+                ),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.divider),
+                  ),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.add_rounded, size: 16, color: AppColors.textHint),
+                      SizedBox(width: 12),
+                      Text('알림 추가', style: TextStyle(fontSize: 14, color: AppColors.textHint)),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ],
         ),

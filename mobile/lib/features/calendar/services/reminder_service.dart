@@ -7,15 +7,17 @@ class ReminderService {
     required String petId,
     required String title,
     required DateTime remindAt,
+    String? recordId,
   }) async {
     final userId = _supabase.auth.currentUser!.id;
-    final dateStr =
-        '${remindAt.year.toString().padLeft(4, '0')}-${remindAt.month.toString().padLeft(2, '0')}-${remindAt.day.toString().padLeft(2, '0')}';
+    final iso = remindAt.toUtc().toIso8601String();
     await _supabase.from('reminders').insert({
       'owner_id': userId,
       'pet_id': petId,
       'title': title,
-      'remind_at': dateStr,
+      'remind_at': iso,
+      'sent': false,
+      if (recordId != null) 'record_id': recordId,
     });
   }
 
@@ -26,9 +28,17 @@ class ReminderService {
         .from('reminders')
         .select('*, pets(name, type)')
         .eq('owner_id', userId)
-        .eq('sent', false)
+        .or('sent.eq.false,sent.is.null')
         .order('remind_at');
     return (data as List).cast<Map<String, dynamic>>();
+  }
+
+  Future<void> updateReminder(String id, {required DateTime remindAt, String? title}) async {
+    final iso = remindAt.toUtc().toIso8601String();
+    await _supabase.from('reminders').update({
+      'remind_at': iso,
+      if (title != null) 'title': title,
+    }).eq('id', id);
   }
 
   Future<void> deleteReminder(String id) async {

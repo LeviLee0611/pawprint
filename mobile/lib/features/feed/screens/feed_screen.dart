@@ -602,28 +602,33 @@ class _ThreadPostState extends State<_ThreadPost> with TickerProviderStateMixin 
           onDoubleTap: _handleDoubleTap,
           child: Stack(
             children: [
-              // 단일 이미지: 게시글 상세와 동일 방식 (자르기 없음)
+              // 단일 이미지: 3:4 고정 프레임 + cover (Supabase도 900×1200 강제)
               // 다중 이미지: PageView는 고정 높이 필요하므로 4:5 유지
               if (post.imageUrls.length == 1)
-                CachedNetworkImage(
-                  imageUrl: toTransformUrl(post.imageUrls[0], width: 900, quality: 85),
-                  fit: BoxFit.contain,
-                  width: double.infinity,
-                  placeholder: (_, _) => _ImageShimmer(),
-                  errorWidget: (_, _, _) => const SizedBox(),
+                AspectRatio(
+                  aspectRatio: 3 / 4,
+                  child: CachedNetworkImage(
+                    imageUrl: toTransformUrl(post.imageUrls[0], width: 900, height: 1200, quality: 85, resize: 'cover'),
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    height: double.infinity,
+                    placeholder: (_, _) => _ImageShimmer(),
+                    errorWidget: (_, _, _) => const SizedBox(),
+                  ),
                 )
               else
                 AspectRatio(
-                  aspectRatio: 4 / 5,
+                  aspectRatio: 3 / 4,
                   child: PageView.builder(
+                    physics: const PageScrollPhysics(parent: ClampingScrollPhysics()),
                     itemCount: post.imageUrls.length,
                     onPageChanged: (i) => setState(() => _imageIndex = i),
                     itemBuilder: (context, i) {
                       if (i + 1 < post.imageUrls.length) {
-                        precacheImage(CachedNetworkImageProvider(toTransformUrl(post.imageUrls[i + 1], width: 900, quality: 85)), context);
+                        precacheImage(CachedNetworkImageProvider(toTransformUrl(post.imageUrls[i + 1], width: 900, height: 1200, quality: 85, resize: 'cover')), context);
                       }
                       return CachedNetworkImage(
-                        imageUrl: toTransformUrl(post.imageUrls[i], width: 900, quality: 85),
+                        imageUrl: toTransformUrl(post.imageUrls[i], width: 900, height: 1200, quality: 85, resize: 'cover'),
                         fit: BoxFit.cover,
                         width: double.infinity,
                         height: double.infinity,

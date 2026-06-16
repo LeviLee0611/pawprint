@@ -70,7 +70,7 @@ class RecordBottomSheet extends StatelessWidget {
               ),
             _RecordOption(
               icon: Icons.favorite_rounded,
-              label: isHousehold ? '집 케어 메모' : '건강 메모',
+              label: isHousehold ? '홈 케어 기록' : '건강 메모',
               description: isHousehold
                   ? '모래 교체·청소·목욕 등 집 전체 케어를 기록해요'
                   : '목욕·케어·특이사항 등을 기록해요',

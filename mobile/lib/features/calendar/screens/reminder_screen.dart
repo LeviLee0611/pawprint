@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../services/reminder_service.dart';
+import 'add_record_screen.dart' show showReminderBottomSheet;
 
 class ReminderScreen extends StatefulWidget {
   const ReminderScreen({super.key});
@@ -31,15 +32,39 @@ class _ReminderScreenState extends State<ReminderScreen> {
     }
   }
 
+  Future<void> _editReminder(Map<String, dynamic> r) async {
+    final remindAt = DateTime.parse(r['remind_at'] as String).toLocal();
+    await showReminderBottomSheet(
+      context,
+      title: r['title'] as String? ?? '알림 수정',
+      initialDate: remindAt,
+      initialTime: TimeOfDay(hour: remindAt.hour, minute: remindAt.minute),
+      onSave: (d, t) async {
+        final fullDt = DateTime(d.year, d.month, d.day, t.hour, t.minute);
+        await _service.updateReminder(r['id'] as String, remindAt: fullDt);
+        await _load();
+      },
+      onDelete: () => _confirmDelete(r['id'] as String),
+    );
+  }
+
   Future<void> _confirmDelete(String id) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('알림 삭제',
-            style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-        content: const Text('이 알림을 삭제하시겠어요?',
-            style: TextStyle(color: AppColors.textSecondary)),
+        contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset('assets/images/포포얼굴사진.png', height: 80),
+            const SizedBox(height: 12),
+            const Text('알림을 삭제할거냥?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+            const SizedBox(height: 8),
+            const Text('이 알림을 삭제할게요', textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textSecondary)),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -113,7 +138,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
 
   Widget _buildTile(Map<String, dynamic> r) {
     final fmt = DateFormat('yyyy년 M월 d일', 'ko');
-    final remindAt = DateTime.parse(r['remind_at'] as String);
+    final remindAt = DateTime.parse(r['remind_at'] as String).toLocal();
     final pet = r['pets'] as Map<String, dynamic>?;
     final petName = pet?['name'] as String? ?? '';
     final petType = pet?['type'] as String? ?? 'cat';
@@ -199,8 +224,12 @@ class _ReminderScreenState extends State<ReminderScreen> {
                   style: const TextStyle(fontSize: 12, color: AppColors.textHint)),
             ),
           IconButton(
+            onPressed: () => _editReminder(r),
+            icon: const Icon(Icons.edit_outlined, size: 20, color: AppColors.textHint),
+          ),
+          IconButton(
             onPressed: () => _confirmDelete(r['id'] as String),
-            icon: const Icon(Icons.delete_outline, size: 20, color: AppColors.textHint),
+            icon: const Icon(Icons.delete_outline, size: 20, color: AppColors.error),
           ),
         ],
       ),

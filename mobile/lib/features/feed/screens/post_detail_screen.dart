@@ -918,11 +918,15 @@ class _DetailImageCarouselState extends State<_DetailImageCarousel> {
     if (widget.urls.length == 1) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: CachedNetworkImage(
-          imageUrl: toTransformUrl(widget.urls.first, width: 1200, quality: 90),
-          width: double.infinity,
-          fit: BoxFit.contain,
-          errorWidget: (_, _, _) => const SizedBox(),
+        child: AspectRatio(
+          aspectRatio: 3 / 4,
+          child: CachedNetworkImage(
+            imageUrl: toTransformUrl(widget.urls.first, width: 1200, height: 1600, quality: 90, resize: 'cover'),
+            width: double.infinity,
+            height: double.infinity,
+            fit: BoxFit.cover,
+            errorWidget: (_, _, _) => const SizedBox(),
+          ),
         ),
       );
     }
@@ -930,16 +934,17 @@ class _DetailImageCarouselState extends State<_DetailImageCarousel> {
     return Column(
       children: [
         AspectRatio(
-          aspectRatio: 1,
+          aspectRatio: 3 / 4,
           child: PageView.builder(
             itemCount: widget.urls.length,
             onPageChanged: (i) => setState(() => _current = i),
             itemBuilder: (ctx, i) => ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: CachedNetworkImage(
-                imageUrl: toTransformUrl(widget.urls[i], width: 1200, quality: 90),
+                imageUrl: toTransformUrl(widget.urls[i], width: 1200, height: 1600, quality: 90, resize: 'cover'),
                 width: double.infinity,
-                fit: BoxFit.contain,
+                height: double.infinity,
+                fit: BoxFit.cover,
                 errorWidget: (_, _, _) => const SizedBox(),
               ),
             ),

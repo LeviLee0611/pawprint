@@ -122,7 +122,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                           sliver: SliverGrid(
                             gridDelegate:
                                 const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 3,
+                              crossAxisCount: 2,
                               crossAxisSpacing: 8,
                               mainAxisSpacing: 8,
                               childAspectRatio: 1.0,
@@ -189,7 +189,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                 fit: StackFit.expand,
                 children: [
                   CachedNetworkImage(
-                    imageUrl: toTransformUrl(post.imageUrl, width: 400, quality: 75),
+                    imageUrl: toTransformUrl(post.imageUrl, width: 400, height: 400, quality: 75, resize: 'cover'),
                     fit: BoxFit.cover,
                     errorWidget: (_, _, _) => _buildTextTile(post),
                   ),

@@ -83,6 +83,7 @@ class _AppState extends State<App> {
       child: Scaffold(
         body: PageView(
           controller: _pageController,
+          physics: const NeverScrollableScrollPhysics(),
           onPageChanged: (index) => setState(() => _currentIndex = index),
           children: const [
             CalendarScreen(),

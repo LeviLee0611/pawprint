@@ -109,19 +109,20 @@ serve(async () => {
     const projectId: string = sa.project_id
     const accessToken = await getAccessToken(sa)
 
-    // KST 기준 오늘 날짜 (UTC+9)
-    const kstNow = new Date(Date.now() + 9 * 60 * 60 * 1000)
-    const today = kstNow.toISOString().split('T')[0]
+    // 현재 UTC 기준으로 지금까지 도달한 알림 (최근 25시간 내, 미발송)
+    const now = new Date()
+    const windowStart = new Date(now.getTime() - 25 * 60 * 60 * 1000)
 
     const { data: reminders, error: rErr } = await supabase
       .from('reminders')
       .select('id, title, owner_id')
-      .eq('remind_at', today)
+      .lte('remind_at', now.toISOString())
+      .gte('remind_at', windowStart.toISOString())
       .eq('sent', false)
 
     if (rErr) throw rErr
     if (!reminders || reminders.length === 0) {
-      return new Response(JSON.stringify({ sent: 0, date: today }), {
+      return new Response(JSON.stringify({ sent: 0, checked_at: now.toISOString() }), {
         headers: { 'Content-Type': 'application/json' },
       })
     }
@@ -150,7 +151,7 @@ serve(async () => {
       await supabase.from('reminders').update({ sent: true }).in('id', sentIds)
     }
 
-    return new Response(JSON.stringify({ sent: sentIds.length, date: today }), {
+    return new Response(JSON.stringify({ sent: sentIds.length, checked_at: now.toISOString() }), {
       headers: { 'Content-Type': 'application/json' },
     })
   } catch (e) {
