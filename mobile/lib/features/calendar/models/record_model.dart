@@ -25,7 +25,7 @@ class Record {
         id: json['id'] as String,
         petId: json['pet_id'] as String?,
         ownerId: json['owner_id'] as String,
-        date: DateTime.parse(json['date'] as String),
+        date: DateTime.parse('${json['date']}T00:00:00'),
         type: json['type'] as String,
         notes: json['notes'] as String?,
         value: json['value'] != null ? (json['value'] as num).toDouble() : null,

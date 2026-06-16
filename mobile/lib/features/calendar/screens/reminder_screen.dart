@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/local_time.dart';
 import '../services/reminder_service.dart';
 import 'add_record_screen.dart' show showReminderBottomSheet;
 
@@ -33,7 +34,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
   }
 
   Future<void> _editReminder(Map<String, dynamic> r) async {
-    final remindAt = DateTime.parse(r['remind_at'] as String).toLocal();
+    final remindAt = LocalTime.toLocal(DateTime.parse(r['remind_at'] as String));
     await showReminderBottomSheet(
       context,
       title: r['title'] as String? ?? '알림 수정',
@@ -138,12 +139,12 @@ class _ReminderScreenState extends State<ReminderScreen> {
 
   Widget _buildTile(Map<String, dynamic> r) {
     final fmt = DateFormat('yyyy년 M월 d일', 'ko');
-    final remindAt = DateTime.parse(r['remind_at'] as String).toLocal();
+    final remindAt = LocalTime.toLocal(DateTime.parse(r['remind_at'] as String));
     final pet = r['pets'] as Map<String, dynamic>?;
     final petName = pet?['name'] as String? ?? '';
     final petType = pet?['type'] as String? ?? 'cat';
     final petEmoji = petType == 'dog' ? '🐶' : '🐱';
-    final dDay = remindAt.difference(DateTime.now()).inDays;
+    final dDay = remindAt.difference(LocalTime.now).inDays;
     final isPast = dDay < 0;
 
     return Container(
@@ -177,18 +178,27 @@ class _ReminderScreenState extends State<ReminderScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(r['title'] as String? ?? '',
-                    style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: isPast ? AppColors.textHint : AppColors.textPrimary,
-                        fontSize: 14)),
+                Text(
+                  r['title'] as String? ?? '',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: isPast ? AppColors.textHint : AppColors.textPrimary,
+                      fontSize: 14),
+                ),
                 const SizedBox(height: 3),
                 Row(
                   children: [
-                    Text('$petEmoji $petName',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-                    const Text('  ·  ',
-                        style: TextStyle(fontSize: 12, color: AppColors.textHint)),
+                    Flexible(
+                      child: Text(
+                        '$petEmoji $petName',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                    ),
+                    const Text('  ·  ', style: TextStyle(fontSize: 12, color: AppColors.textHint)),
                     Text(fmt.format(remindAt),
                         style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                   ],
@@ -223,13 +233,35 @@ class _ReminderScreenState extends State<ReminderScreen> {
               child: Text('D+${-dDay}',
                   style: const TextStyle(fontSize: 12, color: AppColors.textHint)),
             ),
-          IconButton(
-            onPressed: () => _editReminder(r),
-            icon: const Icon(Icons.edit_outlined, size: 20, color: AppColors.textHint),
-          ),
-          IconButton(
-            onPressed: () => _confirmDelete(r['id'] as String),
-            icon: const Icon(Icons.delete_outline, size: 20, color: AppColors.error),
+          PopupMenuButton<String>(
+            onSelected: (v) {
+              if (v == 'edit') {
+                _editReminder(r);
+              } else {
+                _confirmDelete(r['id'] as String);
+              }
+            },
+            padding: EdgeInsets.zero,
+            icon: const Icon(Icons.more_vert_rounded, size: 20, color: AppColors.textHint),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            itemBuilder: (_) => [
+              const PopupMenuItem(
+                value: 'edit',
+                child: Row(children: [
+                  Icon(Icons.edit_outlined, size: 18, color: AppColors.textHint),
+                  SizedBox(width: 10),
+                  Text('수정'),
+                ]),
+              ),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(children: [
+                  Icon(Icons.delete_outline, size: 18, color: AppColors.error),
+                  SizedBox(width: 10),
+                  Text('삭제', style: TextStyle(color: AppColors.error)),
+                ]),
+              ),
+            ],
           ),
         ],
       ),

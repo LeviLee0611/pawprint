@@ -13,6 +13,7 @@ import '../widgets/record_bottom_sheet.dart';
 import '../services/reminder_service.dart';
 import '../screens/reminder_screen.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/local_time.dart';
 import '../../pet/models/pet_model.dart';
 import '../../pet/screens/add_pet_screen.dart';
 import '../../pet/services/pet_service.dart';
@@ -31,7 +32,7 @@ class _CalendarScreenState extends State<CalendarScreen> with AutomaticKeepAlive
   final _recordService = RecordService();
   final _reminderService = ReminderService();
 
-  DateTime _focusedDay = DateTime.now();
+  DateTime _focusedDay = LocalTime.now;
   DateTime? _selectedDay;
 
   List<Pet> _pets = [];
@@ -165,7 +166,7 @@ class _CalendarScreenState extends State<CalendarScreen> with AutomaticKeepAlive
       final all = await _recordService.getAllRecords();
       if (!mounted) return;
       final dates = all.map((r) => DateTime(r.date.year, r.date.month, r.date.day)).toSet();
-      final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+      final today = LocalTime.today;
       DateTime check = dates.contains(today) ? today : today.subtract(const Duration(days: 1));
       int streak = 0;
       while (dates.contains(check)) {
@@ -397,7 +398,7 @@ class _CalendarScreenState extends State<CalendarScreen> with AutomaticKeepAlive
                   color: AppColors.primary,
                   tooltip: '기록 추가',
                   onPressed: () =>
-                      _showRecordSheet(_selectedDay ?? DateTime.now()),
+                      _showRecordSheet(_selectedDay ?? LocalTime.today),
                 ),
               ],
             ],
@@ -411,7 +412,7 @@ class _CalendarScreenState extends State<CalendarScreen> with AutomaticKeepAlive
   Future<void> _showDateJumper() async {
     int selYear = _focusedDay.year;
     int selMonth = _focusedDay.month;
-    final now = DateTime.now();
+    final now = LocalTime.now;
 
     await showModalBottomSheet(
       context: context,

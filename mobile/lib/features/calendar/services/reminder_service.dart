@@ -17,7 +17,7 @@ class ReminderService {
       'title': title,
       'remind_at': iso,
       'sent': false,
-      if (recordId != null) 'record_id': recordId,
+      'record_id': ?recordId,
     });
   }
 
@@ -37,7 +37,7 @@ class ReminderService {
     final iso = remindAt.toUtc().toIso8601String();
     await _supabase.from('reminders').update({
       'remind_at': iso,
-      if (title != null) 'title': title,
+      'title': ?title,
     }).eq('id', id);
   }
 

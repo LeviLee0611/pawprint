@@ -625,7 +625,6 @@ class _AddRecordScreenState extends State<AddRecordScreen> {
   }
 }
 
-// 심플한 알림 트리거 row
 class ReminderSection extends StatelessWidget {
   final DateTime? date;
   final TimeOfDay? time;
@@ -648,185 +647,80 @@ class ReminderSection extends StatelessWidget {
         ? '${time!.hour.toString().padLeft(2, '0')}:${time!.minute.toString().padLeft(2, '0')}'
         : '09:00';
 
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(14),
+    if (!isSet) {
+      return GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.brownLight, width: 1),
+          ),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.add_alarm_rounded, size: 18, color: AppColors.textHint),
+              SizedBox(width: 8),
+              Text('다음 접종 알림 추가', style: TextStyle(fontSize: 14, color: AppColors.textHint)),
+            ],
+          ),
         ),
-        child: Row(
-          children: [
-            Icon(
-              isSet ? Icons.notifications_active_outlined : Icons.notifications_none_rounded,
-              size: 20,
-              color: isSet ? AppColors.primary : AppColors.textHint,
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: AppColors.primaryLight.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                isSet ? '${fmt.format(date!)}  $timeStr' : '다음 접종 알림 추가',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: isSet ? AppColors.textPrimary : AppColors.textHint,
-                  fontWeight: isSet ? FontWeight.w500 : FontWeight.normal,
-                ),
+            child: const Icon(Icons.notifications_active_rounded, size: 18, color: AppColors.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(fmt.format(date!),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                const SizedBox(height: 2),
+                Text(timeStr, style: const TextStyle(fontSize: 12, color: AppColors.primary)),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: onTap,
+            child: const Padding(
+              padding: EdgeInsets.all(6),
+              child: Icon(Icons.edit_outlined, size: 16, color: AppColors.textHint),
+            ),
+          ),
+          if (onDelete != null)
+            GestureDetector(
+              onTap: onDelete,
+              behavior: HitTestBehavior.opaque,
+              child: const Padding(
+                padding: EdgeInsets.all(6),
+                child: Icon(Icons.close_rounded, size: 16, color: AppColors.textHint),
               ),
             ),
-            if (isSet && onDelete != null)
-              GestureDetector(
-                onTap: onDelete,
-                behavior: HitTestBehavior.opaque,
-                child: const Padding(
-                  padding: EdgeInsets.all(4),
-                  child: Icon(Icons.close_rounded, size: 16, color: AppColors.textHint),
-                ),
-              )
-            else
-              const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textHint),
-          ],
-        ),
+        ],
       ),
     );
   }
 }
 
-// 공유 바텀시트 - add_record, record_detail, reminder_screen 에서 모두 사용
-// 30분 단위 전용 시간 피커 (시 선택 + :00/:30 토글)
-Future<TimeOfDay?> _showHalfHourTimePicker(BuildContext context, TimeOfDay initial) async {
-  int hour = initial.hour;
-  int minute = initial.minute == 30 ? 30 : 0;
-
-  return showModalBottomSheet<TimeOfDay>(
-    context: context,
-    backgroundColor: Colors.transparent,
-    builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setState) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(color: AppColors.divider, borderRadius: BorderRadius.circular(2)),
-              ),
-            ),
-            const SizedBox(height: 20),
-            const Text('시간 선택', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-            const SizedBox(height: 20),
-            // 시(hour) 선택 — +/- 버튼
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(12)),
-              child: Row(
-                children: [
-                  const Icon(Icons.access_time_outlined, size: 16, color: AppColors.primary),
-                  const SizedBox(width: 10),
-                  const Text('시', style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
-                  const Spacer(),
-                  GestureDetector(
-                    onTap: () => setState(() => hour = (hour - 1 + 24) % 24),
-                    child: Container(
-                      width: 36, height: 36,
-                      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(10)),
-                      child: const Icon(Icons.remove_rounded, size: 18, color: AppColors.textSecondary),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 56,
-                    child: Text(
-                      '${hour.toString().padLeft(2, '0')}시',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () => setState(() => hour = (hour + 1) % 24),
-                    child: Container(
-                      width: 36, height: 36,
-                      decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(10)),
-                      child: const Icon(Icons.add_rounded, size: 18, color: AppColors.textSecondary),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            // 분(minute) 선택 — :00 / :30 토글
-            Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => minute = 0),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      decoration: BoxDecoration(
-                        color: minute == 0 ? AppColors.primary : AppColors.background,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        ':00',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold,
-                          color: minute == 0 ? Colors.white : AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => setState(() => minute = 30),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      decoration: BoxDecoration(
-                        color: minute == 30 ? AppColors.primary : AppColors.background,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        ':30',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold,
-                          color: minute == 30 ? Colors.white : AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, TimeOfDay(hour: hour, minute: minute)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  elevation: 0,
-                ),
-                child: const Text('확인', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
+// add_record, record_detail, reminder_screen 에서 공유
 Future<void> showReminderBottomSheet(
   BuildContext context, {
   required String title,
@@ -837,120 +731,262 @@ Future<void> showReminderBottomSheet(
 }) async {
   final fmt = DateFormat('yyyy년 M월 d일', 'ko');
   DateTime pickedDate = initialDate ?? DateTime.now().add(const Duration(days: 365));
-  final _initTime = initialTime ?? const TimeOfDay(hour: 9, minute: 0);
-  TimeOfDay pickedTime = TimeOfDay(hour: _initTime.hour, minute: _initTime.minute == 30 ? 30 : 0);
+  final initTime = initialTime ?? const TimeOfDay(hour: 9, minute: 0);
+  int hour = initTime.hour;
+  int minute = initTime.minute == 30 ? 30 : 0;
+  final hourController = FixedExtentScrollController(initialItem: hour);
 
-  await showModalBottomSheet<void>(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setSheet) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        padding: EdgeInsets.only(
-          left: 24, right: 24, top: 16,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 32,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(color: AppColors.divider, borderRadius: BorderRadius.circular(2)),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-            const SizedBox(height: 20),
-            _SheetPickerRow(
-              icon: Icons.calendar_today_outlined,
-              label: fmt.format(pickedDate),
-              onTap: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: pickedDate,
-                  firstDate: DateTime.now(),
-                  lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
-                  locale: const Locale('ko'),
-                );
-                if (picked != null) setSheet(() => pickedDate = picked);
-              },
-            ),
-            const SizedBox(height: 10),
-            _SheetPickerRow(
-              icon: Icons.access_time_outlined,
-              label: '${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}',
-              onTap: () async {
-                final picked = await _showHalfHourTimePicker(context, pickedTime);
-                if (picked != null) setSheet(() => pickedTime = picked);
-              },
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () { Navigator.pop(ctx); onSave(pickedDate, pickedTime); },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  elevation: 0,
+  try {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: EdgeInsets.only(
+            left: 24, right: 24, top: 16,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 32,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(color: AppColors.divider, borderRadius: BorderRadius.circular(2)),
                 ),
-                child: const Text('저장하기', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
               ),
-            ),
-            if (onDelete != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 20),
+              Text(title, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+              const SizedBox(height: 20),
+              // 날짜
+              GestureDetector(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: pickedDate,
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
+                    locale: const Locale('ko'),
+                  );
+                  if (picked != null) setSheet(() => pickedDate = picked);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_today_outlined, size: 16, color: AppColors.primary),
+                      const SizedBox(width: 12),
+                      Text(fmt.format(pickedDate),
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppColors.textPrimary)),
+                      const Spacer(),
+                      const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.textHint),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // 시간 — 드럼롤(시) + 토글(분) 인라인
+              Container(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                decoration: BoxDecoration(
+                  color: AppColors.background,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 시(hour) 드럼롤
+                    Expanded(
+                      child: Column(
+                        children: [
+                          const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.access_time_outlined, size: 13, color: AppColors.primary),
+                              SizedBox(width: 5),
+                              Text('시', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            height: 120,
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                // 선택 영역 하이라이트
+                                Container(
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryLight.withValues(alpha: 0.5),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                ListWheelScrollView.useDelegate(
+                                  controller: hourController,
+                                  itemExtent: 40,
+                                  physics: const FixedExtentScrollPhysics(),
+                                  perspective: 0.003,
+                                  onSelectedItemChanged: (val) => setSheet(() => hour = val),
+                                  childDelegate: ListWheelChildBuilderDelegate(
+                                    childCount: 24,
+                                    builder: (_, i) => Center(
+                                      child: Text(
+                                        '${i.toString().padLeft(2, '0')}시',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: hour == i ? FontWeight.bold : FontWeight.normal,
+                                          color: hour == i ? AppColors.textPrimary : AppColors.textHint,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // 상하 페이드
+                                Positioned(
+                                  top: 0, left: 0, right: 0,
+                                  child: IgnorePointer(
+                                    child: Container(
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topCenter,
+                                          end: Alignment.bottomCenter,
+                                          colors: [AppColors.background, AppColors.background.withValues(alpha: 0)],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  bottom: 0, left: 0, right: 0,
+                                  child: IgnorePointer(
+                                    child: Container(
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.bottomCenter,
+                                          end: Alignment.topCenter,
+                                          colors: [AppColors.background, AppColors.background.withValues(alpha: 0)],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    // 분(minute) :00 / :30 토글
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.timer_outlined, size: 13, color: AppColors.primary),
+                              SizedBox(width: 5),
+                              Text('분', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          _MinuteToggle(
+                            label: ':00',
+                            selected: minute == 0,
+                            onTap: () => setSheet(() => minute = 0),
+                          ),
+                          const SizedBox(height: 8),
+                          _MinuteToggle(
+                            label: ':30',
+                            selected: minute == 30,
+                            onTap: () => setSheet(() => minute = 30),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
-                child: TextButton(
-                  onPressed: () { Navigator.pop(ctx); onDelete(); },
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppColors.error,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    onSave(pickedDate, TimeOfDay(hour: hour, minute: minute));
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    elevation: 0,
                   ),
-                  child: const Text('알림 삭제', style: TextStyle(fontSize: 14)),
+                  child: const Text('저장하기', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
                 ),
               ),
+              if (onDelete != null) ...[
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton(
+                    onPressed: () { Navigator.pop(ctx); onDelete(); },
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: const Text('알림 삭제', style: TextStyle(fontSize: 14)),
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
-    ),
-  );
+    );
+  } finally {
+    hourController.dispose();
+  }
 }
 
-class _SheetPickerRow extends StatelessWidget {
-  final IconData icon;
+class _MinuteToggle extends StatelessWidget {
   final String label;
+  final bool selected;
   final VoidCallback onTap;
 
-  const _SheetPickerRow({required this.icon, required this.label, required this.onTap});
+  const _MinuteToggle({required this.label, required this.selected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: AppColors.background,
-          borderRadius: BorderRadius.circular(12),
+          color: selected ? AppColors.primary : AppColors.surface,
+          borderRadius: BorderRadius.circular(10),
         ),
-        child: Row(
-          children: [
-            Icon(icon, size: 16, color: AppColors.primary),
-            const SizedBox(width: 12),
-            Text(label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppColors.textPrimary)),
-            const Spacer(),
-            const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.textHint),
-          ],
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: selected ? Colors.white : AppColors.textSecondary,
+          ),
         ),
       ),
     );

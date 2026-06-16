@@ -8,6 +8,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'config.dart';
 import 'app.dart';
+import 'core/utils/local_time.dart';
 import 'firebase_options.dart';
 import 'core/services/force_update_service.dart';
 import 'core/services/notification_service.dart';
@@ -32,6 +33,7 @@ Future<void> main() async {
   );
 
   await initializeDateFormatting('ko', null);
+  await LocalTime.initialize();
 
   runApp(const PawprintApp());
 }

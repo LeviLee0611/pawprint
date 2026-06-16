@@ -8,6 +8,7 @@ import '../models/record_model.dart';
 import '../services/record_service.dart';
 import '../services/reminder_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/local_time.dart';
 import '../../pet/models/pet_model.dart';
 import 'add_record_screen.dart' show showReminderBottomSheet;
 
@@ -61,12 +62,13 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   Future<void> _loadReminders() async {
     try {
       final all = await _reminderService.getMyReminders();
-      if (mounted) setState(() => _existingReminders = all.where((r) {
-        // record_id가 있으면 정확히 이 기록의 알림만, 없으면 같은 펫 알림 fallback
-        final rid = r['record_id'] as String?;
-        if (rid != null) return rid == widget.record.id;
-        return r['pet_id'] == widget.pet.id;
-      }).toList());
+      if (mounted) {
+        setState(() => _existingReminders = all.where((r) {
+          final rid = r['record_id'] as String?;
+          if (rid != null) return rid == widget.record.id;
+          return r['pet_id'] == widget.pet.id;
+        }).toList());
+      }
     } catch (_) {}
   }
 
@@ -273,9 +275,9 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
               _sectionLabel('알림'),
               const SizedBox(height: 10),
               ..._existingReminders.map((r) {
-                final remindAt = DateTime.parse(r['remind_at'] as String).toLocal();
+                final remindAt = LocalTime.toLocal(DateTime.parse(r['remind_at'] as String));
                 final fmt = DateFormat('yyyy년 M월 d일', 'ko');
-                final dDay = remindAt.difference(DateTime.now()).inDays;
+                final dDay = remindAt.difference(LocalTime.now).inDays;
                 final isPast = dDay < 0;
                 final timeStr = '${remindAt.hour.toString().padLeft(2, '0')}:${remindAt.minute.toString().padLeft(2, '0')}';
                 return GestureDetector(
@@ -337,7 +339,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                     ),
                   ),
                 );
-              }).toList(),
+              }),
               GestureDetector(
                 onTap: () => showReminderBottomSheet(
                   context,
