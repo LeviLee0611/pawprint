@@ -45,7 +45,16 @@ class _SearchScreenState extends State<SearchScreen>
   Future<void> _loadFollowingIds() async {
     try {
       final ids = await _followService.getFollowingIds();
-      if (mounted) _followingIds = ids.toSet();
+      if (!mounted) return;
+      _followingIds = ids.toSet();
+      if (_users.isNotEmpty) {
+        setState(() {
+          _followStates = {
+            for (final u in _users)
+              u['id'] as String: _followingIds.contains(u['id'] as String),
+          };
+        });
+      }
     } catch (_) {}
   }
 
@@ -110,6 +119,11 @@ class _SearchScreenState extends State<SearchScreen>
     setState(() => _followStates[userId] = !current);
     try {
       await _followService.toggleFollow(userId);
+      if (current) {
+        _followingIds.remove(userId);
+      } else {
+        _followingIds.add(userId);
+      }
     } catch (_) {
       if (mounted) setState(() => _followStates[userId] = current);
     } finally {

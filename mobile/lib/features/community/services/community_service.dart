@@ -190,6 +190,7 @@ class CommunityService {
   }
 
   Future<void> deletePost(String postId, {List<String>? imageUrls}) async {
+    await _supabase.from('community_posts').delete().eq('id', postId);
     if (imageUrls != null && imageUrls.isNotEmpty) {
       final paths = imageUrls
           .map((url) => StoragePathUtil.fromUrl(url, 'post-images'))
@@ -201,6 +202,5 @@ class CommunityService {
         } catch (_) {}
       }
     }
-    await _supabase.from('community_posts').delete().eq('id', postId);
   }
 }

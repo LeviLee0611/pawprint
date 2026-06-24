@@ -27,6 +27,7 @@ class _CommunityScreenState extends State<CommunityScreen> with AutomaticKeepAli
   List<CommunityPost> _posts = [];
   bool _loading = true;
   bool _loadingMore = false;
+  bool _reloading = false;
   bool _hasMore = true;
   int _offset = 0;
   int _generation = 0;
@@ -87,7 +88,7 @@ class _CommunityScreenState extends State<CommunityScreen> with AutomaticKeepAli
   }
 
   void _onScroll() {
-    if (_loading || _loadingMore || !_hasMore) return;
+    if (_loading || _reloading || _loadingMore || !_hasMore) return;
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
       _loadMore();
@@ -98,6 +99,8 @@ class _CommunityScreenState extends State<CommunityScreen> with AutomaticKeepAli
     final gen = ++_generation;
     setState(() {
       _loading = _posts.isEmpty;
+      _reloading = true;
+      _loadingMore = false;
       _offset = 0;
       _hasMore = true;
     });
@@ -113,7 +116,12 @@ class _CommunityScreenState extends State<CommunityScreen> with AutomaticKeepAli
     } catch (e) {
       debugPrint('community load error: $e');
     } finally {
-      if (mounted && gen == _generation) setState(() => _loading = false);
+      if (mounted && gen == _generation) {
+        setState(() {
+          _loading = false;
+          _reloading = false;
+        });
+      }
     }
   }
 
