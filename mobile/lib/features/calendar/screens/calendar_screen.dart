@@ -206,7 +206,7 @@ class _CalendarScreenState extends State<CalendarScreen> with AutomaticKeepAlive
     }
   }
 
-  Future<void> _loadRecords(int year, int month) async {
+  Future<void> _loadRecords(int year, int month, {bool recalculateStreak = false}) async {
     try {
       final records = _selectedPetId == null
           ? await _recordService.getRecordsForMonthAllPets(year, month)
@@ -219,7 +219,7 @@ class _CalendarScreenState extends State<CalendarScreen> with AutomaticKeepAlive
         (map[key] ??= []).add(r);
       }
       setState(() => _recordsByDate = map);
-      _calculateStreak();
+      if (recalculateStreak) _calculateStreak();
     } catch (_) {
       if (mounted) setState(() => _recordsByDate = {});
     }
@@ -321,7 +321,7 @@ class _CalendarScreenState extends State<CalendarScreen> with AutomaticKeepAlive
     );
 
     if (saved == true) {
-      await _loadRecords(_focusedDay.year, _focusedDay.month);
+      await _loadRecords(_focusedDay.year, _focusedDay.month, recalculateStreak: true);
     }
   }
 
@@ -829,10 +829,9 @@ class _CalendarScreenState extends State<CalendarScreen> with AutomaticKeepAlive
                     }
                   },
             onDelete: () async {
-              await RecordService()
-                  .deleteRecord(r.id, photoUrl: r.photoUrl);
+              await _recordService.deleteRecord(r.id, photoUrl: r.photoUrl);
               if (mounted) {
-                await _loadRecords(_focusedDay.year, _focusedDay.month);
+                await _loadRecords(_focusedDay.year, _focusedDay.month, recalculateStreak: true);
               }
             },
           );

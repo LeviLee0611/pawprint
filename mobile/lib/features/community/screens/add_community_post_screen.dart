@@ -33,6 +33,7 @@ class _AddCommunityPostScreenState extends State<AddCommunityPostScreen> {
 
   static const _categoryOptions = [
     ('lost',     '실종 신고',   AppColors.error,       Icons.location_searching_rounded),
+    ('found',    '발견 신고',   AppColors.info,        Icons.search_rounded),
     ('rehome',   '입양 보내기', AppColors.success,     Icons.home_rounded),
     ('looking',  '입양 원해요', AppColors.warning,     Icons.favorite_rounded),
     ('tip',      '꿀팁/정보',   AppColors.catTip,      Icons.lightbulb_rounded),
@@ -43,11 +44,11 @@ class _AddCommunityPostScreenState extends State<AddCommunityPostScreen> {
   void initState() {
     super.initState();
     _category = widget.initialCategory;
-    if (_category == 'lost') {
+    if (_category == 'lost' || _category == 'found') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           LocationService.ensurePermission(context,
-              reason: '실종 신고에 위치를 첨부하려면 위치 권한이 필요해요.');
+              reason: '신고에 위치를 첨부하려면 위치 권한이 필요해요.');
         }
       });
     }
@@ -263,9 +264,9 @@ class _AddCommunityPostScreenState extends State<AddCommunityPostScreen> {
               const SizedBox(height: 16),
             ],
 
-            // 실종 위치 (실종 신고일 때만)
-            if (_category == 'lost') ...[
-              _label('실종 위치 *'),
+            // 실종/발견 위치 (GPS 포함)
+            if (_category == 'lost' || _category == 'found') ...[
+              _label(_category == 'lost' ? '실종 위치 *' : '발견 위치'),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -325,8 +326,8 @@ class _AddCommunityPostScreenState extends State<AddCommunityPostScreen> {
               const SizedBox(height: 16),
             ],
 
-            // 장소/지역 (펫 관련 카테고리 중 실종 아닐 때)
-            if (_isPetCategory && _category != 'lost') ...[
+            // 장소/지역 (나눔/입양 관련)
+            if (_isPetCategory && _category != 'lost' && _category != 'found') ...[
               _label(_category == 'looking' ? '원하는 지역' : '장소/지역'),
               const SizedBox(height: 8),
               _inputField(
@@ -358,9 +359,9 @@ class _AddCommunityPostScreenState extends State<AddCommunityPostScreen> {
         return GestureDetector(
           onTap: () {
             setState(() => _category = value);
-            if (value == 'lost') {
+            if (value == 'lost' || value == 'found') {
               LocationService.ensurePermission(context,
-                  reason: '실종 신고에 위치를 첨부하려면 위치 권한이 필요해요.');
+                  reason: '신고에 위치를 첨부하려면 위치 권한이 필요해요.');
             }
           },
           child: AnimatedContainer(
@@ -415,10 +416,12 @@ class _AddCommunityPostScreenState extends State<AddCommunityPostScreen> {
             tile(2),
           ]),
           const SizedBox(height: 8),
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Row(children: [
             tile(3),
             const SizedBox(width: 8),
             tile(4),
+            const SizedBox(width: 8),
+            tile(5),
           ]),
         ],
       );

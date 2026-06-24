@@ -188,8 +188,6 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
     }
   }
 
-  List<Post> get _filteredPosts => _posts;
-
   Future<void> _toggleSave(int index) async {
     final post = _posts[index];
     if (_togglingSaves.contains(post.id)) return;
@@ -280,7 +278,7 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
               : RefreshIndicator(
               onRefresh: _loadAll,
               color: AppColors.primary,
-              child: _filteredPosts.isEmpty
+              child: _posts.isEmpty
                   ? _buildEmptyState()
                   : _buildFeed(),
             ),
@@ -379,13 +377,12 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildFeed() {
-    final posts = _filteredPosts;
     return ListView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.only(bottom: 100),
-      itemCount: posts.length + (_loadingMore ? 1 : 0),
+      itemCount: _posts.length + (_loadingMore ? 1 : 0),
       itemBuilder: (context, index) {
-        if (index == posts.length) {
+        if (index == _posts.length) {
           return const Padding(
             padding: EdgeInsets.symmetric(vertical: 20),
             child: Center(
@@ -393,13 +390,12 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
             ),
           );
         }
-        final post = posts[index];
-        final rawIndex = _posts.indexOf(post);
+        final post = _posts[index];
         return _ThreadPost(
           key: ValueKey(post.id),
           post: post,
-          onLike: () => _toggleLike(rawIndex),
-          onSave: () => _toggleSave(rawIndex),
+          onLike: () => _toggleLike(index),
+          onSave: () => _toggleSave(index),
           onTap: () async {
             await Navigator.push(
               context,
@@ -407,7 +403,7 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
                 builder: (_) => PostDetailScreen(post: post),
               ),
             );
-            _loadAll();
+            _loadPosts(reset: true);
           },
           onProfileTap: () => Navigator.push(
             context,
@@ -436,10 +432,9 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
             });
           },
           onDelete: () async {
-            final postService = PostService();
             final messenger = ScaffoldMessenger.of(context);
             try {
-              await postService.deletePost(post.id, imageUrls: post.imageUrls);
+              await _postService.deletePost(post.id, imageUrls: post.imageUrls);
               if (!mounted) return;
               setState(() => _posts.removeWhere((p) => p.id == post.id));
             } catch (e) {

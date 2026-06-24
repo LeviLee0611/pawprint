@@ -25,10 +25,11 @@ class _CommunityScreenState extends State<CommunityScreen> with AutomaticKeepAli
   List<CommunityPost> _posts = [];
   bool _loading = true;
 
-  static const _categories = ['전체', '실종', '나눔&입양', '꿀팁/정보', '질문/고민'];
+  static const _categories = ['전체', '실종', '발견', '나눔&입양', '꿀팁/정보', '질문/고민'];
   static const _categoryColors = [
     AppColors.primary,
     AppColors.error,
+    AppColors.info,
     AppColors.success,
     AppColors.catTip,
     AppColors.catQuestion,
@@ -36,6 +37,7 @@ class _CommunityScreenState extends State<CommunityScreen> with AutomaticKeepAli
   static const _categoryIcons = [
     Icons.grid_view_rounded,
     Icons.location_searching_rounded,
+    Icons.search_rounded,
     Icons.favorite_border_rounded,
     Icons.lightbulb_outline_rounded,
     Icons.chat_bubble_outline_rounded,
@@ -45,9 +47,10 @@ class _CommunityScreenState extends State<CommunityScreen> with AutomaticKeepAli
   List<String>? get _filterCategories {
     switch (_selectedCategory) {
       case 1: return ['lost'];
-      case 2: return ['rehome', 'looking'];
-      case 3: return ['tip'];
-      case 4: return ['question'];
+      case 2: return ['found'];
+      case 3: return ['rehome', 'looking'];
+      case 4: return ['tip'];
+      case 5: return ['question'];
       default: return null; // 전체
     }
   }
@@ -56,9 +59,10 @@ class _CommunityScreenState extends State<CommunityScreen> with AutomaticKeepAli
   String get _defaultWriteCategory {
     switch (_selectedCategory) {
       case 1: return 'lost';
-      case 2: return 'rehome';
-      case 3: return 'tip';
-      case 4: return 'question';
+      case 2: return 'found';
+      case 3: return 'rehome';
+      case 4: return 'tip';
+      case 5: return 'question';
       default: return 'lost';
     }
   }
@@ -236,9 +240,10 @@ class _CommunityScreenState extends State<CommunityScreen> with AutomaticKeepAli
               Text(
                 switch (_selectedCategory) {
                   1 => '🔍',
-                  2 => '🏠',
-                  3 => '💡',
-                  4 => '💬',
+                  2 => '📢',
+                  3 => '🏠',
+                  4 => '💡',
+                  5 => '💬',
                   _ => '📋',
                 },
                 style: const TextStyle(fontSize: 56),
@@ -279,9 +284,10 @@ class _CommunityScreenState extends State<CommunityScreen> with AutomaticKeepAli
   String _getEmptyTitle() {
     switch (_selectedCategory) {
       case 1: return '등록된 실종 글이 없어요';
-      case 2: return '나눔&입양 글이 없어요';
-      case 3: return '등록된 꿀팁이 없어요';
-      case 4: return '등록된 질문이 없어요';
+      case 2: return '등록된 발견 글이 없어요';
+      case 3: return '나눔&입양 글이 없어요';
+      case 4: return '등록된 꿀팁이 없어요';
+      case 5: return '등록된 질문이 없어요';
       default: return '아직 게시글이 없어요';
     }
   }
@@ -289,9 +295,10 @@ class _CommunityScreenState extends State<CommunityScreen> with AutomaticKeepAli
   String _getEmptySubtitle() {
     switch (_selectedCategory) {
       case 1: return '실종된 아이를 제보해주세요';
-      case 2: return '나눔 또는 입양 글을 올려주세요';
-      case 3: return '반려동물 꿀팁을 공유해보세요 💡';
-      case 4: return '궁금한 점을 자유롭게 물어보세요';
+      case 2: return '발견한 아이를 신고해주세요';
+      case 3: return '나눔 또는 입양 글을 올려주세요';
+      case 4: return '반려동물 꿀팁을 공유해보세요 💡';
+      case 5: return '궁금한 점을 자유롭게 물어보세요';
       default: return '첫 번째 글을 올려보세요';
     }
   }

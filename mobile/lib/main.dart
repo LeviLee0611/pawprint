@@ -114,6 +114,7 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   String? _syncedUserId;
   bool _wasAuthenticated = false;
+  bool _notificationInitialized = false;
 
   Future<void> _syncProfile(String userId) async {
     if (_syncedUserId == userId) return; // 같은 유저 중복 실행 방지
@@ -156,6 +157,7 @@ class _AuthGateState extends State<AuthGate> {
         final session = Supabase.instance.client.auth.currentSession;
         if (session == null) {
           _syncedUserId = null;
+          _notificationInitialized = false;
           if (_wasAuthenticated) {
             _wasAuthenticated = false;
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -165,7 +167,12 @@ class _AuthGateState extends State<AuthGate> {
           return const LoginScreen();
         }
         _wasAuthenticated = true;
-        NotificationService.init();
+        if (!_notificationInitialized) {
+          _notificationInitialized = true;
+          unawaited(NotificationService.init().catchError((_) {
+            _notificationInitialized = false;
+          }));
+        }
         _syncProfile(session.user.id);
         return const _PetGate();
       },

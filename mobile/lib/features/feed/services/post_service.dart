@@ -18,6 +18,39 @@ class PostService {
 
   static const _pageSize = 20;
 
+  /// 게시글 ID 목록에 대해 내 좋아요/저장 여부를 병렬로 조회
+  Future<({Set<String> likes, Set<String> saves})> _fetchReactions(
+      String userId, List<String> postIds) async {
+    if (postIds.isEmpty) return (likes: <String>{}, saves: <String>{});
+    final results = await Future.wait([
+      _supabase
+          .from('likes')
+          .select('post_id')
+          .eq('owner_id', userId)
+          .inFilter('post_id', postIds),
+      _supabase
+          .from('saves')
+          .select('post_id')
+          .eq('owner_id', userId)
+          .inFilter('post_id', postIds),
+    ]);
+    return (
+      likes: (results[0] as List).map((e) => e['post_id'] as String).toSet(),
+      saves: (results[1] as List).map((e) => e['post_id'] as String).toSet(),
+    );
+  }
+
+  List<Post> _mapWithReactions(
+    List data, {
+    required Set<String> likes,
+    required Set<String> saves,
+  }) =>
+      data
+          .map((e) => Post.fromJson(e,
+              isLikedByMe: likes.contains(e['id']),
+              isSavedByMe: saves.contains(e['id'])))
+          .toList();
+
   Future<List<Post>> getPosts({
     int offset = 0,
     String? petType,
@@ -28,46 +61,25 @@ class PostService {
     final select = petType != null ? _postSelectPetFilter : _postSelect;
     var query = _supabase.from('posts').select(select).eq('is_hidden', false);
 
-    // 팔로잉 필터: 내 글 + 팔로우한 사람 글
     if (followingIds != null) {
       final ids = [...followingIds, ?userId];
       query = query.inFilter('owner_id', ids);
     }
 
-    // 펫 타입 필터: !inner JOIN으로 서버에서 완전히 제외
     if (petType != null) {
       query = query.eq('pets.type', petType);
     }
 
     final data = await query
         .order('created_at', ascending: false)
-        .range(offset, offset + _pageSize - 1);
+        .range(offset, offset + _pageSize - 1) as List;
 
-    final postIds = (data as List).map((e) => e['id'] as String).toList();
-    Set<String> myLikes = {};
-    Set<String> mySaves = {};
-    if (userId != null && postIds.isNotEmpty) {
-      final results = await Future.wait([
-        _supabase
-            .from('likes')
-            .select('post_id')
-            .eq('owner_id', userId)
-            .inFilter('post_id', postIds),
-        _supabase
-            .from('saves')
-            .select('post_id')
-            .eq('owner_id', userId)
-            .inFilter('post_id', postIds),
-      ]);
-      myLikes = (results[0] as List).map((e) => e['post_id'] as String).toSet();
-      mySaves = (results[1] as List).map((e) => e['post_id'] as String).toSet();
-    }
+    final postIds = data.map((e) => e['id'] as String).toList();
+    final reactions = userId != null
+        ? await _fetchReactions(userId, postIds)
+        : (likes: <String>{}, saves: <String>{});
 
-    return (data as List)
-        .map((e) => Post.fromJson(e,
-            isLikedByMe: myLikes.contains(e['id']),
-            isSavedByMe: mySaves.contains(e['id'])))
-        .toList();
+    return _mapWithReactions(data, likes: reactions.likes, saves: reactions.saves);
   }
 
   Future<List<Post>> getPopularPosts({
@@ -78,7 +90,6 @@ class PostService {
 
     var query = _supabase.from('posts').select(_postSelect).eq('is_hidden', false);
 
-    // 차단 유저 게시글 제외
     if (blockedIds != null && blockedIds.isNotEmpty) {
       query = query.not('owner_id', 'in', '(${blockedIds.join(',')})');
     }
@@ -86,33 +97,14 @@ class PostService {
     final data = await query
         .order('popular_score', ascending: false)
         .order('created_at', ascending: false)
-        .range(offset, offset + _pageSize - 1);
+        .range(offset, offset + _pageSize - 1) as List;
 
-    final postIds = (data as List).map((e) => e['id'] as String).toList();
-    Set<String> myLikes = {};
-    Set<String> mySaves = {};
-    if (userId != null && postIds.isNotEmpty) {
-      final results = await Future.wait([
-        _supabase
-            .from('likes')
-            .select('post_id')
-            .eq('owner_id', userId)
-            .inFilter('post_id', postIds),
-        _supabase
-            .from('saves')
-            .select('post_id')
-            .eq('owner_id', userId)
-            .inFilter('post_id', postIds),
-      ]);
-      myLikes = (results[0] as List).map((e) => e['post_id'] as String).toSet();
-      mySaves = (results[1] as List).map((e) => e['post_id'] as String).toSet();
-    }
+    final postIds = data.map((e) => e['id'] as String).toList();
+    final reactions = userId != null
+        ? await _fetchReactions(userId, postIds)
+        : (likes: <String>{}, saves: <String>{});
 
-    return (data as List)
-        .map((e) => Post.fromJson(e,
-            isLikedByMe: myLikes.contains(e['id']),
-            isSavedByMe: mySaves.contains(e['id'])))
-        .toList();
+    return _mapWithReactions(data, likes: reactions.likes, saves: reactions.saves);
   }
 
   Future<List<Post>> getSavedPosts() async {
@@ -124,24 +116,16 @@ class PostService {
         .select('post_id, posts($_postSelect)')
         .eq('owner_id', userId)
         .eq('posts.is_hidden', false)
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: false) as List;
 
-    final postIds = (savesData as List).map((e) => e['post_id'] as String).toList();
-    Set<String> myLikes = {};
-    if (postIds.isNotEmpty) {
-      final likesData = await _supabase
-          .from('likes')
-          .select('post_id')
-          .eq('owner_id', userId)
-          .inFilter('post_id', postIds);
-      myLikes = (likesData as List).map((e) => e['post_id'] as String).toSet();
-    }
+    final visible = savesData.where((e) => e['posts'] != null).toList();
+    final postIds = visible.map((e) => e['post_id'] as String).toList();
+    final reactions = await _fetchReactions(userId, postIds);
 
-    return (savesData as List)
-        .where((e) => e['posts'] != null)
+    return visible
         .map((e) => Post.fromJson(
               e['posts'] as Map<String, dynamic>,
-              isLikedByMe: myLikes.contains(e['post_id']),
+              isLikedByMe: reactions.likes.contains(e['post_id']),
               isSavedByMe: true,
             ))
         .toList();
@@ -168,48 +152,36 @@ class PostService {
   Future<List<Post>> getPostsByUser(String userId) async {
     final myId = _supabase.auth.currentUser?.id;
 
-    final results = await Future.wait([
-      _supabase
-          .from('posts')
-          .select(_postSelect)
-          .eq('owner_id', userId)
-          .eq('is_hidden', false)
-          .order('created_at', ascending: false),
-      if (myId != null)
-        _supabase.from('likes').select('post_id').eq('owner_id', myId),
-    ]);
+    final data = await _supabase
+        .from('posts')
+        .select(_postSelect)
+        .eq('owner_id', userId)
+        .eq('is_hidden', false)
+        .order('created_at', ascending: false) as List;
 
-    final data = results[0] as List;
-    final myLikes = myId != null
-        ? (results[1] as List).map((e) => e['post_id'] as String).toSet()
-        : <String>{};
+    final postIds = data.map((e) => e['id'] as String).toList();
+    final reactions = myId != null
+        ? await _fetchReactions(myId, postIds)
+        : (likes: <String>{}, saves: <String>{});
 
-    return data
-        .map((e) => Post.fromJson(e, isLikedByMe: myLikes.contains(e['id'])))
-        .toList();
+    return _mapWithReactions(data, likes: reactions.likes, saves: reactions.saves);
   }
 
   Future<List<Post>> getMyPosts() async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return [];
 
-    final results = await Future.wait([
-      _supabase
-          .from('posts')
-          .select(_postSelect)
-          .eq('owner_id', userId)
-          .eq('is_hidden', false)
-          .order('created_at', ascending: false),
-      _supabase.from('likes').select('post_id').eq('owner_id', userId),
-    ]);
+    final data = await _supabase
+        .from('posts')
+        .select(_postSelect)
+        .eq('owner_id', userId)
+        .eq('is_hidden', false)
+        .order('created_at', ascending: false) as List;
 
-    final data = results[0] as List;
-    final myLikes =
-        (results[1] as List).map((e) => e['post_id'] as String).toSet();
+    final postIds = data.map((e) => e['id'] as String).toList();
+    final reactions = await _fetchReactions(userId, postIds);
 
-    return data
-        .map((e) => Post.fromJson(e, isLikedByMe: myLikes.contains(e['id'])))
-        .toList();
+    return _mapWithReactions(data, likes: reactions.likes, saves: reactions.saves);
   }
 
   Future<Post> updatePost({
@@ -304,17 +276,13 @@ class PostService {
         .maybeSingle();
     if (data == null) return null;
 
-    bool isLiked = false;
-    if (myId != null) {
-      final like = await _supabase
-          .from('likes')
-          .select('id')
-          .eq('post_id', postId)
-          .eq('owner_id', myId)
-          .maybeSingle();
-      isLiked = like != null;
-    }
-    return Post.fromJson(data, isLikedByMe: isLiked);
+    final reactions = myId != null
+        ? await _fetchReactions(myId, [postId])
+        : (likes: <String>{}, saves: <String>{});
+
+    return Post.fromJson(data,
+        isLikedByMe: reactions.likes.contains(postId),
+        isSavedByMe: reactions.saves.contains(postId));
   }
 
   Future<Post> addPost({
