@@ -93,6 +93,8 @@ class NotificationService {
     }
   }
 
+  static Future<void> saveTokenIfGranted() => _saveToken();
+
   static Future<void> clearToken() async {
     // DB 삭제와 FCM 삭제를 분리 — 한쪽 실패가 다른 작업을 막지 않도록
     try {

@@ -1,5 +1,8 @@
+import 'package:firebase_messaging/firebase_messaging.dart' as fcm;
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/services/notification_service.dart';
 import '../services/notification_settings_service.dart';
 
 class NotificationSettingsScreen extends StatefulWidget {
@@ -17,6 +20,7 @@ class _NotificationSettingsScreenState
   NotificationSettings _settings = const NotificationSettings();
   bool _loading = true;
   bool _saving = false;
+  fcm.AuthorizationStatus _permStatus = fcm.AuthorizationStatus.authorized;
 
   @override
   void initState() {
@@ -26,12 +30,39 @@ class _NotificationSettingsScreenState
 
   Future<void> _load() async {
     try {
-      final s = await _service.getSettings();
-      if (mounted) setState(() => _settings = s);
+      final results = await Future.wait([
+        _service.getSettings(),
+        fcm.FirebaseMessaging.instance.getNotificationSettings(),
+      ]);
+      if (mounted) {
+        setState(() {
+          _settings = results[0] as NotificationSettings;
+          _permStatus = (results[1] as fcm.NotificationSettings)
+              .authorizationStatus;
+        });
+      }
     } catch (e) {
       debugPrint('notification settings load error: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _requestPermission() async {
+    final result = await fcm.FirebaseMessaging.instance.requestPermission(
+      alert: true, badge: true, sound: true,
+    );
+    if (!mounted) return;
+    setState(() => _permStatus = result.authorizationStatus);
+    if (result.authorizationStatus == fcm.AuthorizationStatus.authorized) {
+      await NotificationService.saveTokenIfGranted();
+    }
+  }
+
+  Future<void> _openSystemSettings() async {
+    final uri = Uri.parse('app-settings:');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
     }
   }
 
@@ -77,6 +108,13 @@ class _NotificationSettingsScreenState
               child: CircularProgressIndicator(color: AppColors.primary))
           : ListView(
               children: [
+                if (_permStatus != fcm.AuthorizationStatus.authorized)
+                  _PermissionBanner(
+                    isPermanentlyDenied:
+                        _permStatus == fcm.AuthorizationStatus.denied,
+                    onAllow: _requestPermission,
+                    onOpenSettings: _openSystemSettings,
+                  ),
                 // ── 좋아요 ──────────────────────────────
                 _SectionHeader(title: '좋아요'),
                 _LevelTile(
@@ -252,6 +290,79 @@ class _LevelTile extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ── 알림 권한 배너 ──────────────────────────────────────────
+
+class _PermissionBanner extends StatelessWidget {
+  final bool isPermanentlyDenied;
+  final VoidCallback onAllow;
+  final VoidCallback onOpenSettings;
+
+  const _PermissionBanner({
+    required this.isPermanentlyDenied,
+    required this.onAllow,
+    required this.onOpenSettings,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.error.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.notifications_off_rounded,
+              color: AppColors.error, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  '알림 권한이 꺼져 있어요',
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  isPermanentlyDenied
+                      ? '설정에서 알림을 직접 켜주세요'
+                      : '허용해야 알림을 받을 수 있어요',
+                  style: const TextStyle(
+                      fontSize: 12, color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed:
+                isPermanentlyDenied ? onOpenSettings : onAllow,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.error,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8)),
+            ),
+            child: Text(
+              isPermanentlyDenied ? '설정 열기' : '허용하기',
+              style: const TextStyle(
+                  fontWeight: FontWeight.w700, fontSize: 13),
+            ),
+          ),
+        ],
       ),
     );
   }
