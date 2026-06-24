@@ -29,7 +29,7 @@ class _CommunityScreenState extends State<CommunityScreen> with AutomaticKeepAli
   bool _loadingMore = false;
   bool _hasMore = true;
   int _offset = 0;
-  static const _pageSize = 30;
+  int _generation = 0;
 
   static const _categories = ['전체', '실종', '발견', '나눔&입양', '꿀팁/정보', '질문/고민'];
   static const _categoryColors = [
@@ -87,7 +87,7 @@ class _CommunityScreenState extends State<CommunityScreen> with AutomaticKeepAli
   }
 
   void _onScroll() {
-    if (_loadingMore || !_hasMore) return;
+    if (_loading || _loadingMore || !_hasMore) return;
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
       _loadMore();
@@ -95,6 +95,7 @@ class _CommunityScreenState extends State<CommunityScreen> with AutomaticKeepAli
   }
 
   Future<void> _loadPosts() async {
+    final gen = ++_generation;
     setState(() {
       _loading = _posts.isEmpty;
       _offset = 0;
@@ -102,29 +103,30 @@ class _CommunityScreenState extends State<CommunityScreen> with AutomaticKeepAli
     });
     try {
       final posts = await _service.getPosts(categories: _filterCategories, offset: 0);
-      if (mounted) {
+      if (mounted && gen == _generation) {
         setState(() {
           _posts = posts;
           _offset = posts.length;
-          _hasMore = posts.length >= _pageSize;
+          _hasMore = posts.length >= CommunityService.pageSize;
         });
       }
     } catch (e) {
       debugPrint('community load error: $e');
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && gen == _generation) setState(() => _loading = false);
     }
   }
 
   Future<void> _loadMore() async {
+    final gen = _generation;
     setState(() => _loadingMore = true);
     try {
       final posts = await _service.getPosts(categories: _filterCategories, offset: _offset);
-      if (mounted) {
+      if (mounted && gen == _generation) {
         setState(() {
           _posts = [..._posts, ...posts];
           _offset += posts.length;
-          _hasMore = posts.length >= _pageSize;
+          _hasMore = posts.length >= CommunityService.pageSize;
         });
       }
     } catch (e) {

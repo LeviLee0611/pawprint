@@ -8,7 +8,7 @@ import '../models/sighting_report_model.dart';
 class CommunityService {
   final _supabase = Supabase.instance.client;
   static const _select = '*, profiles:owner_id(display_name, avatar_url)';
-  static const _pageSize = 30;
+  static const pageSize = 30;
 
   Future<List<CommunityPost>> getPosts({List<String>? categories, int offset = 0}) async {
     var query = _supabase
@@ -22,7 +22,7 @@ class CommunityService {
 
     final data = await query
         .order('created_at', ascending: false)
-        .range(offset, offset + _pageSize - 1);
+        .range(offset, offset + pageSize - 1);
     return (data as List)
         .map((e) => CommunityPost.fromJson(e as Map<String, dynamic>))
         .toList();

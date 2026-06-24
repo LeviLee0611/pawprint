@@ -118,6 +118,12 @@ class _SearchScreenState extends State<SearchScreen>
   }
 
   @override
+  void activate() {
+    super.activate();
+    _loadFollowingIds(); // 탭 복귀 시 팔로우 상태 갱신
+  }
+
+  @override
   bool get wantKeepAlive => true;
 
   @override
