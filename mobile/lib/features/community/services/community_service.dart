@@ -1,14 +1,16 @@
 import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/utils/content_filter.dart';
+import '../../../core/utils/storage_path_util.dart';
 import '../models/community_post_model.dart';
 import '../models/sighting_report_model.dart';
 
 class CommunityService {
   final _supabase = Supabase.instance.client;
   static const _select = '*, profiles:owner_id(display_name, avatar_url)';
+  static const _pageSize = 30;
 
-  Future<List<CommunityPost>> getPosts({List<String>? categories}) async {
+  Future<List<CommunityPost>> getPosts({List<String>? categories, int offset = 0}) async {
     var query = _supabase
         .from('community_posts')
         .select(_select)
@@ -20,7 +22,7 @@ class CommunityService {
 
     final data = await query
         .order('created_at', ascending: false)
-        .limit(50);
+        .range(offset, offset + _pageSize - 1);
     return (data as List)
         .map((e) => CommunityPost.fromJson(e as Map<String, dynamic>))
         .toList();
@@ -190,14 +192,7 @@ class CommunityService {
   Future<void> deletePost(String postId, {List<String>? imageUrls}) async {
     if (imageUrls != null && imageUrls.isNotEmpty) {
       final paths = imageUrls
-          .map((url) {
-            final uri = Uri.tryParse(url);
-            if (uri == null) return null;
-            final segments = uri.pathSegments;
-            final idx = segments.indexOf('post-images');
-            if (idx == -1 || idx + 1 >= segments.length) return null;
-            return segments.sublist(idx + 1).join('/');
-          })
+          .map((url) => StoragePathUtil.fromUrl(url, 'post-images'))
           .whereType<String>()
           .toList();
       if (paths.isNotEmpty) {

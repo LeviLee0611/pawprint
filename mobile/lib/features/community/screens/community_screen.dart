@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/image_util.dart';
+import '../../../core/widgets/app_image.dart';
 import '../models/community_post_model.dart';
 import '../services/community_service.dart';
 import '../../chat/screens/chat_list_screen.dart';
@@ -20,10 +21,15 @@ class _CommunityScreenState extends State<CommunityScreen> with AutomaticKeepAli
   @override
   bool get wantKeepAlive => true;
   final _service = CommunityService();
+  final _scrollController = ScrollController();
 
   int _selectedCategory = 0;
   List<CommunityPost> _posts = [];
   bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  int _offset = 0;
+  static const _pageSize = 30;
 
   static const _categories = ['전체', '실종', '발견', '나눔&입양', '꿀팁/정보', '질문/고민'];
   static const _categoryColors = [
@@ -70,18 +76,61 @@ class _CommunityScreenState extends State<CommunityScreen> with AutomaticKeepAli
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     _loadPosts();
   }
 
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_loadingMore || !_hasMore) return;
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      _loadMore();
+    }
+  }
+
   Future<void> _loadPosts() async {
-    setState(() => _loading = _posts.isEmpty);
+    setState(() {
+      _loading = _posts.isEmpty;
+      _offset = 0;
+      _hasMore = true;
+    });
     try {
-      final posts = await _service.getPosts(categories: _filterCategories);
-      if (mounted) setState(() => _posts = posts);
+      final posts = await _service.getPosts(categories: _filterCategories, offset: 0);
+      if (mounted) {
+        setState(() {
+          _posts = posts;
+          _offset = posts.length;
+          _hasMore = posts.length >= _pageSize;
+        });
+      }
     } catch (e) {
       debugPrint('community load error: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadMore() async {
+    setState(() => _loadingMore = true);
+    try {
+      final posts = await _service.getPosts(categories: _filterCategories, offset: _offset);
+      if (mounted) {
+        setState(() {
+          _posts = [..._posts, ...posts];
+          _offset += posts.length;
+          _hasMore = posts.length >= _pageSize;
+        });
+      }
+    } catch (e) {
+      debugPrint('community load more error: $e');
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
     }
   }
 
@@ -212,20 +261,32 @@ class _CommunityScreenState extends State<CommunityScreen> with AutomaticKeepAli
 
   Widget _buildList() {
     return ListView.separated(
+      controller: _scrollController,
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 100),
-      itemCount: _posts.length,
+      itemCount: _posts.length + (_loadingMore ? 1 : 0),
       separatorBuilder: (_, _) => const SizedBox(height: 8),
-      itemBuilder: (context, i) => InkWell(
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        splashColor: AppColors.primaryLight.withValues(alpha: 0.25),
-        onTap: () => Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => CommunityPostDetailScreen(post: _posts[i]),
+      itemBuilder: (context, i) {
+        if (i >= _posts.length) {
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: CircularProgressIndicator(
+                  color: AppColors.primary, strokeWidth: 2),
+            ),
+          );
+        }
+        return InkWell(
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+          splashColor: AppColors.primaryLight.withValues(alpha: 0.25),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => CommunityPostDetailScreen(post: _posts[i]),
+            ),
           ),
-        ),
-        child: _CommunityCard(post: _posts[i]),
-      ),
+          child: _CommunityCard(post: _posts[i]),
+        );
+      },
     );
   }
 
@@ -443,16 +504,7 @@ class _CommunityCard extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                CircleAvatar(
-                  radius: 10,
-                  backgroundColor: AppColors.primaryLight,
-                  backgroundImage: post.ownerAvatarUrl != null
-                      ? NetworkImage(post.ownerAvatarUrl!)
-                      : null,
-                  child: post.ownerAvatarUrl == null
-                      ? const Icon(Icons.person, size: 12, color: AppColors.primary)
-                      : null,
-                ),
+                AppAvatar(url: post.ownerAvatarUrl, size: 20),
                 const SizedBox(width: 6),
                 Text(
                   post.ownerName ?? '사용자',

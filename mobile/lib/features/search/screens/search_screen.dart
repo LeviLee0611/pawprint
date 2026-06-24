@@ -18,7 +18,7 @@ class SearchScreen extends StatefulWidget {
 }
 
 class _SearchScreenState extends State<SearchScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
   final _searchController = TextEditingController();
   final _searchService = SearchService();
   final _followService = FollowService();
@@ -28,6 +28,7 @@ class _SearchScreenState extends State<SearchScreen>
   String _query = '';
   bool _loading = false;
   int _searchId = 0;
+  Set<String> _followingIds = {};
 
   List<Map<String, dynamic>> _users = [];
   List<Post> _posts = [];
@@ -38,6 +39,14 @@ class _SearchScreenState extends State<SearchScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadFollowingIds();
+  }
+
+  Future<void> _loadFollowingIds() async {
+    try {
+      final ids = await _followService.getFollowingIds();
+      if (mounted) _followingIds = ids.toSet();
+    } catch (_) {}
   }
 
   @override
@@ -76,17 +85,15 @@ class _SearchScreenState extends State<SearchScreen>
       final results = await Future.wait([
         _searchService.searchUsers(query),
         _searchService.searchPosts(query),
-        _followService.getFollowingIds(),
       ]);
       if (!mounted || thisId != _searchId) return; // 오래된 응답 버림
       final users = results[0] as List<Map<String, dynamic>>;
-      final followingIds = (results[2] as List<String>).toSet();
       setState(() {
         _users = users;
         _posts = results[1] as List<Post>;
         _followStates = {
           for (final u in users)
-            u['id'] as String: followingIds.contains(u['id'] as String),
+            u['id'] as String: _followingIds.contains(u['id'] as String),
         };
       });
     } catch (e) {
@@ -111,7 +118,11 @@ class _SearchScreenState extends State<SearchScreen>
   }
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: PreferredSize(

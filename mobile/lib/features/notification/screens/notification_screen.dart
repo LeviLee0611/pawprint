@@ -6,6 +6,7 @@ import '../../feed/screens/post_detail_screen.dart';
 import '../../feed/services/post_service.dart';
 import '../../profile/screens/user_profile_screen.dart';
 import '../models/app_notification.dart';
+import '../../../core/widgets/app_image.dart';
 import '../services/notification_repository.dart';
 import 'notification_settings_screen.dart';
 
@@ -220,21 +221,7 @@ class _NotificationTile extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 아바타
-            CircleAvatar(
-              radius: 22,
-              backgroundColor: AppColors.primaryLight,
-              backgroundImage: url != null ? NetworkImage(url) : null,
-              child: url == null
-                  ? ClipOval(
-                      child: Image.asset(
-                        'assets/images/앱로고.png',
-                        width: 44,
-                        height: 44,
-                        fit: BoxFit.cover,
-                      ),
-                    )
-                  : null,
-            ),
+            AppAvatar(url: url, size: 44),
             const SizedBox(width: 12),
 
             Expanded(
