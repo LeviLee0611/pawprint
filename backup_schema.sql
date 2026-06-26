@@ -454,13 +454,20 @@ SECURITY DEFINER
 SET search_path TO 'public'
 AS $function$
 BEGIN
+  -- 7일 이내: 점수 재계산
   UPDATE public.posts
   SET popular_score = (
     (likes_count * 2.0 + comments_count * 3.0 + saves_count * 5.0)
     / POWER(EXTRACT(EPOCH FROM (NOW() - created_at)) / 3600.0 + 2.0, 1.5)
   )
-  WHERE is_hidden = false;
-  -- 숨김 게시글은 0으로 초기화
+  WHERE is_hidden = false
+    AND created_at > NOW() - INTERVAL '7 days';
+  -- 7일 초과 공개 글: 점수 0으로 리셋 (인기 탭 상단 고정 방지)
+  UPDATE public.posts
+  SET popular_score = 0
+  WHERE is_hidden = false
+    AND created_at <= NOW() - INTERVAL '7 days';
+  -- 숨김 게시글: 점수 0
   UPDATE public.posts SET popular_score = 0 WHERE is_hidden = true;
 END;
 $function$;

@@ -36,6 +36,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   final _postService = PostService();
   final _petService = PetService();
   final _blockService = BlockService();
+  late final ScrollController _scrollController;
 
   List<Post> _posts = [];
   List<Pet> _pets = [];
@@ -46,6 +47,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   bool _loading = true;
   bool _followLoading = false;
   bool _hasError = false;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  PostCursor? _cursor;
+  int _postCount = 0;
 
   String get _myId => Supabase.instance.client.auth.currentUser?.id ?? '';
   bool get _isMyProfile => widget.userId == _myId;
@@ -53,28 +58,75 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _scrollController = ScrollController()..addListener(_onScroll);
     _loadData();
   }
 
-  Future<void> _loadData() async {
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 300 &&
+        !_loadingMore &&
+        _hasMore &&
+        !_loading) {
+      _loadMorePosts();
+    }
+  }
+
+  Future<void> _loadMorePosts() async {
+    setState(() => _loadingMore = true);
     try {
-      final results = await Future.wait([
-        _postService.getPostsByUser(widget.userId),
+      final more = await _postService.getPostsByUser(widget.userId, cursor: _cursor);
+      if (!mounted) return;
+      setState(() {
+        _posts.addAll(more);
+        if (more.isNotEmpty) _cursor = (createdAt: more.last.createdAt.toIso8601String(), id: more.last.id);
+        _hasMore = more.length >= 20;
+      });
+    } catch (e) {
+      debugPrint('loadMorePosts error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('더 불러오기 실패. 다시 시도해주세요.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
+  Future<void> _loadData() async {
+    setState(() { _loading = true; _hasError = false; _cursor = null; _hasMore = true; });
+    try {
+      final supabase = Supabase.instance.client;
+      final results = await Future.wait<dynamic>([
+        _postService.getPostsByUser(widget.userId, cursor: null),
         _followService.getFollowCounts(widget.userId),
         _petService.getPetsByUser(widget.userId),
+        supabase.from('posts').count().eq('owner_id', widget.userId).eq('is_hidden', false),
         if (!_isMyProfile) _followService.isFollowing(widget.userId),
         if (!_isMyProfile) _blockService.isBlocked(widget.userId),
       ]);
       if (!mounted) return;
+      final firstPage = results[0] as List<Post>;
       final counts = results[1] as Map<String, int>;
+      final totalCount = (results[3] as int?) ?? 0;
       setState(() {
-        _posts = results[0] as List<Post>;
+        _posts = firstPage;
+        _postCount = totalCount;
+        if (firstPage.isNotEmpty) _cursor = (createdAt: firstPage.last.createdAt.toIso8601String(), id: firstPage.last.id);
+        _hasMore = firstPage.length >= 20;
         _pets = results[2] as List<Pet>;
         _followers = counts['followers'] ?? 0;
         _following = counts['following'] ?? 0;
         if (!_isMyProfile) {
-          _isFollowing = results[3] as bool;
-          _isBlocked = results[4] as bool;
+          _isFollowing = results[4] as bool;
+          _isBlocked = results[5] as bool;
         }
       });
     } catch (e) {
@@ -262,6 +314,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
               color: AppColors.primary,
               onRefresh: _loadData,
               child: CustomScrollView(
+                controller: _scrollController,
                 slivers: [
                   SliverToBoxAdapter(
                     child: _buildHeader(avatarUrl, name),
@@ -281,6 +334,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                             childCount: _posts.length,
                           ),
                         ),
+                  if (_loadingMore)
+                    const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Center(
+                          child: CircularProgressIndicator(color: AppColors.primary),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -373,7 +435,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       statsRow: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _StatColumn(value: '${_posts.length}', label: '게시물'),
+          _StatColumn(value: '$_postCount', label: '게시물'),
           GestureDetector(
             onTap: () => Navigator.push(context, MaterialPageRoute(
               builder: (_) => FollowListScreen(userId: widget.userId, showFollowers: true),

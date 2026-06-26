@@ -50,7 +50,9 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
   bool _hasError = false;
   bool _loadingMore = false;
   bool _hasMore = true;
-  int _rawOffset = 0; // 차단 필터와 무관한 실제 서버 offset
+  PostCursor? _cursor; // 시간순 피드용 cursor
+  int _popularOffset = 0; // 인기 피드용 offset (점수 기반이라 cursor 부적합)
+  final Set<String> _loadedPopularIds = {};
   int _unreadNotifications = 0;
   final Set<String> _togglingLikes = {};
   final Set<String> _togglingSaves = {};
@@ -139,17 +141,20 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
   }
 
   Future<void> _loadPosts({bool reset = false}) async {
-    if (reset) setState(() { _hasMore = true; _rawOffset = 0; });
+    if (reset) {
+      _loadedPopularIds.clear();
+      setState(() { _hasMore = true; _cursor = null; _popularOffset = 0; });
+    }
     try {
       final List<Post> rawPosts;
       if (_filter == _FeedFilter.popular) {
         rawPosts = await _postService.getPopularPosts(
-          offset: reset ? 0 : _rawOffset,
+          offset: reset ? 0 : _popularOffset,
           blockedIds: _blockedIds.toList(),
         );
       } else {
         rawPosts = await _postService.getPosts(
-          offset: reset ? 0 : _rawOffset,
+          cursor: reset ? null : _cursor,
           petType: _filter == _FeedFilter.cat
               ? 'cat'
               : _filter == _FeedFilter.dog
@@ -164,12 +169,25 @@ class _FeedScreenState extends State<FeedScreen> with AutomaticKeepAliveClientMi
       // API 응답 즉시 첫 10개 이미지 백그라운드 다운로드 시작
       _prefetchImages(rawPosts);
       setState(() {
-        if (reset) {
-          _posts = _enrichPosts(rawPosts);
+        if (_filter == _FeedFilter.popular) {
+          final deduped = rawPosts.where((p) => !_loadedPopularIds.contains(p.id)).toList();
+          _loadedPopularIds.addAll(deduped.map((p) => p.id));
+          if (reset) {
+            _posts = _enrichPosts(deduped);
+          } else {
+            _posts.addAll(_enrichPosts(deduped));
+          }
+          _popularOffset += rawPosts.length;
         } else {
-          _posts.addAll(_enrichPosts(rawPosts));
+          if (reset) {
+            _posts = _enrichPosts(rawPosts);
+          } else {
+            _posts.addAll(_enrichPosts(rawPosts));
+          }
+          if (rawPosts.isNotEmpty) {
+            _cursor = (createdAt: rawPosts.last.createdAt.toIso8601String(), id: rawPosts.last.id);
+          }
         }
-        _rawOffset = (reset ? 0 : _rawOffset) + rawPosts.length;
         _hasMore = rawPosts.length >= 20;
       });
     } catch (e) {

@@ -5,6 +5,8 @@ import '../../../core/utils/content_filter.dart';
 import '../../../core/utils/storage_path_util.dart';
 import '../models/post_model.dart';
 
+typedef PostCursor = ({String createdAt, String id});
+
 class PostService {
   final _supabase = Supabase.instance.client;
 
@@ -52,7 +54,7 @@ class PostService {
           .toList();
 
   Future<List<Post>> getPosts({
-    int offset = 0,
+    PostCursor? cursor,
     String? petType,
     List<String>? followingIds,
   }) async {
@@ -70,9 +72,15 @@ class PostService {
       query = query.eq('pets.type', petType);
     }
 
+    if (cursor != null) {
+      query = query.or(
+        'created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})',
+      );
+    }
+
     final data = await query
         .order('created_at', ascending: false)
-        .range(offset, offset + _pageSize - 1) as List;
+        .limit(_pageSize) as List;
 
     final postIds = data.map((e) => e['id'] as String).toList();
     final reactions = userId != null
@@ -97,7 +105,7 @@ class PostService {
     final data = await query
         .order('popular_score', ascending: false)
         .order('created_at', ascending: false)
-        .range(offset, offset + _pageSize - 1) as List;
+        .range(offset, offset + _pageSize - 1) as List; // popular: offset 유지 (점수 매시간 갱신)
 
     final postIds = data.map((e) => e['id'] as String).toList();
     final reactions = userId != null
@@ -149,15 +157,24 @@ class PostService {
     }
   }
 
-  Future<List<Post>> getPostsByUser(String userId) async {
+  Future<List<Post>> getPostsByUser(String userId, {PostCursor? cursor}) async {
     final myId = _supabase.auth.currentUser?.id;
 
-    final data = await _supabase
+    var query = _supabase
         .from('posts')
         .select(_postSelect)
         .eq('owner_id', userId)
-        .eq('is_hidden', false)
-        .order('created_at', ascending: false) as List;
+        .eq('is_hidden', false);
+
+    if (cursor != null) {
+      query = query.or(
+        'created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})',
+      );
+    }
+
+    final data = await query
+        .order('created_at', ascending: false)
+        .limit(_pageSize) as List;
 
     final postIds = data.map((e) => e['id'] as String).toList();
     final reactions = myId != null
@@ -167,16 +184,25 @@ class PostService {
     return _mapWithReactions(data, likes: reactions.likes, saves: reactions.saves);
   }
 
-  Future<List<Post>> getMyPosts() async {
+  Future<List<Post>> getMyPosts({PostCursor? cursor}) async {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return [];
 
-    final data = await _supabase
+    var query = _supabase
         .from('posts')
         .select(_postSelect)
         .eq('owner_id', userId)
-        .eq('is_hidden', false)
-        .order('created_at', ascending: false) as List;
+        .eq('is_hidden', false);
+
+    if (cursor != null) {
+      query = query.or(
+        'created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.lt.${cursor.id})',
+      );
+    }
+
+    final data = await query
+        .order('created_at', ascending: false)
+        .limit(_pageSize) as List;
 
     final postIds = data.map((e) => e['id'] as String).toList();
     final reactions = await _fetchReactions(userId, postIds);
@@ -416,8 +442,9 @@ class PostService {
         .from('comments')
         .select(_commentSelect)
         .eq('post_id', postId)
-        .order('created_at');
-    return (data as List).map((e) => Comment.fromJson(e)).toList();
+        .order('created_at', ascending: false)
+        .limit(50);
+    return (data as List).map((e) => Comment.fromJson(e)).toList().reversed.toList();
   }
 
   Future<Comment> addComment(String postId, String content,

@@ -22,6 +22,7 @@ class MyProfileScreen extends StatefulWidget {
 class _MyProfileScreenState extends State<MyProfileScreen> {
   final _postService = PostService();
   final _followService = FollowService();
+  late final ScrollController _scrollController;
 
   List<Post> _posts = [];
   int _followers = 0;
@@ -30,27 +31,77 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
   String _displayName = '';
   bool _loading = true;
   bool _hasError = false;
+  bool _loadingMore = false;
+  bool _hasMore = true;
+  PostCursor? _cursor;
+  int _postCount = 0;
 
   @override
   void initState() {
     super.initState();
+    _scrollController = ScrollController()..addListener(_onScroll);
     _loadData();
   }
 
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 300 &&
+        !_loadingMore &&
+        _hasMore &&
+        !_loading) {
+      _loadMorePosts();
+    }
+  }
+
+  Future<void> _loadMorePosts() async {
+    setState(() => _loadingMore = true);
+    try {
+      final more = await _postService.getMyPosts(cursor: _cursor);
+      if (!mounted) return;
+      setState(() {
+        _posts.addAll(more);
+        if (more.isNotEmpty) _cursor = (createdAt: more.last.createdAt.toIso8601String(), id: more.last.id);
+        _hasMore = more.length >= 20;
+      });
+    } catch (e) {
+      debugPrint('loadMorePosts error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('더 불러오기 실패. 다시 시도해주세요.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
   Future<void> _loadData() async {
+    setState(() { _loading = true; _hasError = false; _cursor = null; _hasMore = true; });
     final supabase = Supabase.instance.client;
     final myId = supabase.auth.currentUser?.id ?? '';
     try {
-      final results = await Future.wait([
-        _postService.getMyPosts(),
+      final results = await Future.wait<dynamic>([
+        _postService.getMyPosts(cursor: null),
         _followService.getFollowCounts(myId),
         supabase.from('profiles').select('display_name, avatar_url').eq('id', myId).single(),
+        supabase.from('posts').count().eq('owner_id', myId).eq('is_hidden', false),
       ]);
       if (!mounted) return;
+      final firstPage = results[0] as List<Post>;
       final counts = results[1] as Map<String, int>;
       final profile = results[2] as Map<String, dynamic>;
+      final totalCount = (results[3] as int?) ?? 0;
       setState(() {
-        _posts = results[0] as List<Post>;
+        _posts = firstPage;
+        _postCount = totalCount;
+        if (firstPage.isNotEmpty) _cursor = (createdAt: firstPage.last.createdAt.toIso8601String(), id: firstPage.last.id);
+        _hasMore = firstPage.length >= 20;
         _followers = counts['followers'] ?? 0;
         _following = counts['following'] ?? 0;
         _avatarUrl = profile['avatar_url'] as String?;
@@ -109,6 +160,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
               color: AppColors.primary,
               onRefresh: _loadData,
               child: CustomScrollView(
+                controller: _scrollController,
                 slivers: [
                   SliverToBoxAdapter(
                     child: _buildHeader(_avatarUrl, _displayName),
@@ -134,6 +186,15 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                             ),
                           ),
                         ),
+                  if (_loadingMore)
+                    const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 20),
+                        child: Center(
+                          child: CircularProgressIndicator(color: AppColors.primary),
+                        ),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -150,7 +211,7 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
           statsRow: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _StatColumn(value: '${_posts.length}', label: '게시물'),
+              _StatColumn(value: '$_postCount', label: '게시물'),
               GestureDetector(
                 onTap: () {
                   final myId = Supabase.instance.client.auth.currentUser?.id ?? '';
